@@ -30,6 +30,13 @@ bower_components
 .lock-wscript
 
 # Compiled binary addons (https://nodejs.org/api/addons.html)
+data/gallery.json
+data/conference.json
+data/deployments.json
+data/profiles.json
+data/streams.json
+data/locations.json
+nodeploy
 build/Release
 scene/bin
 bin/
@@ -88,3 +95,5 @@ typings/
 node_modules
 
 .idea
+data/conference.json.example.json
+data/conference.json.example.json
