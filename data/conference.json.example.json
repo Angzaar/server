@@ -1,0 +1,100 @@
+{
+  "id": "main",
+  "reservations": [
+    {
+      "id": "068c3718-472c-4e81-930c-1e3c5a0fcf76",
+      "ethAddress": "0xceba6b4186aae99bc8c3c467601bd344b1d62764",
+      "startDate": 1733875200,
+      "endDate": 1733889600,
+      "images": [
+        {
+          "id": 1,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 2,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 3,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 4,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 5,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 6,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 7,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 8,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 9,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 10,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 11,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 12,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 13,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 14,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 15,
+          "src": "",
+          "v": true
+        },
+        {
+          "id": 16,
+          "src": "",
+          "v": true
+        }
+      ],
+      "video": {
+        "url": "",
+        "auto": true,
+        "live": false,
+        "sync": false,
+        "start": 1733875200
+      }
+    }
+  ]
+}

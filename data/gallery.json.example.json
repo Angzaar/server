@@ -1,0 +1,386 @@
+[
+  {
+    "id": "main",
+    "reservations": [
+      {
+        "id": "01f43a76-b36b-409a-bb6d-76ef3777166d",
+        "ethAddress": "0xceba6b4186aae99bc8c3c467601bd344b1d62764",
+        "startDate": 1733875200,
+        "endDate": 1733961600,
+        "images": [
+          {
+            "id": 1,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 2,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 3,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 4,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 5,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 6,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 7,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 8,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 9,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 10,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 11,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 12,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 13,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 14,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 15,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 16,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 17,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 18,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 19,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 20,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 21,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 22,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 23,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 24,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 25,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 26,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 27,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 28,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          },
+          {
+            "id": 29,
+            "src": "",
+            "v": true,
+            "ti": "",
+            "c": false,
+            "desc": "",
+            "t": 0,
+            "b": 22
+          }
+        ]
+      }
+    ],
+    "currentReservation": "01f43a76-b36b-409a-bb6d-76ef3777166d"
+  },
+  {
+    "id": "gal1",
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": "gal2",
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": "gal3",
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": "gal4",
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": "gal5",
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": "gal1",
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": "gal6",
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": "gal7",
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": "gal8",
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": "gal9",
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  }
+]
