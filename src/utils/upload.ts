@@ -3,16 +3,17 @@ import fs from 'fs';
 import { checkDCLDeploymentQueue, deploymentQueue } from "../utils/deployment";
 import { messageDeployType, messageDomain } from "../utils/types";
 import path from "path";
+import { TEMP_LOCATION } from "./initializer";
 
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 
 const storage = multer.diskStorage({
     destination: function (req:any, file:any, cb:any) {
-        if (!fs.existsSync(process.env.TEMP_DIR)) {
-          fs.mkdirSync(process.env.TEMP_DIR, { recursive: true });
+        if (!fs.existsSync(TEMP_LOCATION)) {
+          fs.mkdirSync(TEMP_LOCATION, { recursive: true });
         } 
-        cb(null, process.env.TEMP_DIR);
+        cb(null, TEMP_LOCATION);
     },
     filename: function (req:any, file:any, cb:any) {
       let id = uuidv4()
@@ -21,19 +22,19 @@ const storage = multer.diskStorage({
     },
   });
 
-export const upload = multer({ storage: storage });
+export const upload = multer({ storage: storage,  limits: { fileSize: 300 * 1024 * 1024 }})
 
 export const processUpload = async(req:any, res:any) =>{
     try {
         const body = {...req.body}
         const { signature, hash, userId, locationId, reservationId } = body;
     
-        console.log('authentication body', body)
+        // console.log('authentication body', body)
     
         // Validate input
         if (!signature || !hash || !userId) {
           console.log('missing some information', body)
-          removeTempFile(path.join(process.env.TEMP_DIR, req.fileId + ".zip"))
+          removeTempFile(path.join(TEMP_LOCATION, req.fileId + ".zip"))
           return res.status(400).json({ error: "Missing signature, deployHash, or ethAddress." });
         }
     
@@ -66,7 +67,7 @@ export const processUpload = async(req:any, res:any) =>{
     
         // Verify the recovered address matches the provided ethAddress
         if (recoveredAddress.toLowerCase() !== userId.toLowerCase()) {
-            removeTempFile(path.join(process.env.TEMP_DIR, req.fileId + ".zip"))
+            removeTempFile(path.join(TEMP_LOCATION, req.fileId + ".zip"))
           return res.status(401).json({ error: "Invalid signature." });
         }
     
@@ -75,14 +76,14 @@ export const processUpload = async(req:any, res:any) =>{
 
         if (!file) {
           console.log('no file uploaded')
-          removeTempFile(path.join(process.env.TEMP_DIR, req.fileId + ".zip"))
+          removeTempFile(path.join(TEMP_LOCATION, req.fileId + ".zip"))
           return res.status(400).json({ error: "No file uploaded" });
         }
       
-        console.log("Uploaded file details:", {
-          fileId: req.fileId,
-          storedPath: file.path,
-        });
+        // console.log("Uploaded file details:", {
+        //   fileId: req.fileId,
+        //   storedPath: file.path,
+        // });
 
         let deploymentId = uuidv4()
 
@@ -100,7 +101,7 @@ export const processUpload = async(req:any, res:any) =>{
       } catch (error) {
         console.error("Authentication error:", error);
         res.status(500).json({ error: "Internal server error during authentication." });
-        removeTempFile(path.join(process.env.TEMP_DIR, req.fileId + ".zip"))
+        removeTempFile(path.join(TEMP_LOCATION, req.fileId + ".zip"))
       }
 }
 

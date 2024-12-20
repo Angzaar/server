@@ -10,14 +10,17 @@ import cors from 'cors'
 import { initServer } from "./utils/initializer";
 import { ArtRoom } from "./rooms/ArtRoom";
 import { router } from "./router";
-import { ReservationRoom } from "./rooms/ReservationRoom";
+import { LotteryRoom } from "./rooms/LotteryRoom";
 
 export default config({
     initializeGameServer: (gameServer) => {
         initServer()
-        gameServer.define('angzaar_plaza', MainRoom);
-        gameServer.define('angzaar_plaza_gallery', ArtRoom);
-        // gameServer.define('angzaar_plaza_reservations', ReservationRoom);
+        gameServer.define('angzaar_plaza_conference', MainRoom);
+        gameServer.define('angzaar_plaza_colosseum', MainRoom);
+        gameServer.define('angzaar_plaza_gallery', MainRoom);
+        gameServer.define('angzaar_plaza_reservations', MainRoom);
+        gameServer.define('angzaar_plaza_dapp', MainRoom);
+        gameServer.define('angzaar_plaza_lottery', LotteryRoom);
     },
 
     initializeTransport: function(opts) {
@@ -25,15 +28,15 @@ export default config({
           ...opts,
           pingInterval: 6000,
           pingMaxRetries: 4,
-          maxPayload: 1024 * 1024 * 10, // 10MB Max Payload
+          maxPayload: 1024 * 1024 * 300, // 300MB Max Payload
         });
       },
 
     initializeExpress: (app) => {
-        app.use(bodyParser.json({ limit: '300mb' }));
+        // app.use(bodyParser.json({ limit: '300mb' }));
+        // app.use(bodyParser.urlencoded({limit: '300mb', extended: true }));
         app.use(cors({origin: true}))
         app.options('*', cors());
-        app.use(bodyParser.urlencoded({limit: '300mb', extended: true }));
         app.use('/colyseus', monitor())
         app.use("/playground", playground);
 

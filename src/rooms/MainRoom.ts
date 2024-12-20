@@ -1,9 +1,10 @@
 import { Room, Client, ServerError } from "colyseus";
 import { Schema, type, ArraySchema, MapSchema } from "@colyseus/schema";
-import { handleCancelReservation, handleConferenceCancel, handleConferenceImageUpdate, handleConferenceReserve, handleConferenceVideoUpdate, handleGetMainGallery, handleGetConference, handleGetLocations, handleGetReservation, handleGetStreams, handleReserve, handleReserveStream, validateAndCreateProfile, handleGetUnitGallery, handleArtGalleryUpdate, handleMainGalleryCancel, handleMainGalleryReserve, handleGetLocationReservations, handleGetDeployments } from "./MainRoomHandlers";
+import { handleCancelReservation, handleConferenceCancel, handleConferenceImageUpdate, handleConferenceReserve, handleConferenceVideoUpdate, handleGetMainGallery, handleGetConference, handleGetLocations, handleGetReservation, handleGetStreams, handleReserve, handleReserveStream, validateAndCreateProfile, handleArtGalleryUpdate, handleMainGalleryCancel, handleMainGalleryReserve, handleGetLocationReservations, handleGetDeployments, handleGetShops } from "./MainRoomHandlers";
 import { getCache, loadCache, updateCache } from "../utils/cache";
 import { Profile } from "../utils/types";
 import { ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
+import { createNPCs, NPC, updateNPCs } from "../utils/npc";
 
 export class Player extends Schema {
   @type("string") userId:string;
@@ -14,8 +15,11 @@ export class Player extends Schema {
     super(args)
     this.client = client
   }
-}
 
+  // sendMessage(message:any, data:any){
+  //   this.client.send(message, data)
+  // }
+}
 export class StreamReserveration extends Schema {
   @type("number") id:number
   @type("string") ethAddress:string;
@@ -28,6 +32,9 @@ export class StreamReserveration extends Schema {
 class MainState extends Schema {
   @type(StreamReserveration) colosseumStream:StreamReserveration
   @type({ map: Player }) players = new MapSchema<Player>();
+  @type({ map: NPC }) npcs = new MapSchema<NPC>();
+
+  npcInterval:any
 }
 
 export class MainRoom extends Room<MainState> {
@@ -76,8 +83,18 @@ export class MainRoom extends Room<MainState> {
     this.onMessage("cancel-art-gallery-reservation", (client, message) => handleMainGalleryCancel(this, client, message));
     this.onMessage("art-gallery-reservation", (client, message) => handleMainGalleryReserve(this, client, message));
 
+    this.onMessage("get-shops", (client, message) => handleGetShops(client));
+    this.onMessage("store-reservation", (client, message) => handleMainGalleryReserve(this, client, message));
+
     this.onMessage("get-deployments", (client, message) => handleGetDeployments(client, message));
 
+
+
+    createNPCs(this).then(()=>{
+      this.clock.setInterval(()=>{
+        updateNPCs(this)
+      }, 100)
+    })
   }
 
   onJoin(client: Client, options:any) {
@@ -175,33 +192,5 @@ export class MainRoom extends Room<MainState> {
         this.broadcast('clear-art-gallery')
       }
     }
-
-    galleryInfo.filter((g:any)=> g.id !== "main").forEach((gallery:any)=>{
-      let currentReservation = gallery.reservations.filter(
-        (reservation:any) => now >= reservation.startDate && now <= reservation.endDate
-      );
-
-      if(currentReservation.length > 0){
-        if(gallery.currentReservation !== currentReservation[0].id){
-          gallery.currentReservation = currentReservation[0].id
-          updateCache(CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, galleryInfo)
-
-          this.state.players.forEach((player:Player, id:string)=>{
-          try{
-            handleGetUnitGallery(player.client, 'refresh-unit-gallery')
-          }
-          catch(e){
-            console.log('error sending message to client', e)
-          }
-          })
-        }
-      }else{
-        if(gallery.currentReservation){
-          delete gallery.currentReservation
-          updateCache(CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, galleryInfo)
-          this.broadcast('clear-unit-gallery', gallery.id)
-        }
-      }
-    })
   }
 }

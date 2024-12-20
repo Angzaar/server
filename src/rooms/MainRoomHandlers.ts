@@ -1,7 +1,7 @@
 import { Client, Room } from "colyseus";
 import { getCache, updateCache } from "../utils/cache";
 import { Location, Profile } from "../utils/types";
-import { ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, DEPLOYMENT_QUEUE_CACHE_KEY, LOCATIONS_CACHE_KEY, LOCATIONS_FILE, PROFILES_CACHE_KEY, PROFILES_FILE, STREAMS_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
+import { ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, DEPLOYMENT_QUEUE_CACHE_KEY, LOCATIONS_CACHE_KEY, LOCATIONS_FILE, PROFILES_CACHE_KEY, PROFILES_FILE, SHOPS_FILE, SHOPS_FILE_CACHE_KEY, STREAMS_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
 import { MainRoom } from "./MainRoom";
 import { addDaysToTimestamp, createFolder } from "../utils/folderUtils";
 import path from "path";
@@ -64,7 +64,7 @@ export const validateAndCreateProfile = async (
       })
     }
   
-      console.log('profiles are now ', profiles)
+      // console.log('profiles are now ', profiles)
   
       // Update cache and sync to file
       await updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
@@ -733,47 +733,36 @@ export const handleGetMainGallery = (client: Client, message:string) => {
   }
 };
 
-export const handleGetUnitGallery = (client: Client, message:string) => {
-  // try {
-  //   // Validate input
-  //   if (!client.userData || !client.userData.userId) {
-  //     client.send("error", { message: "Invalid message parameters" });
-  //     return;
-  //   }
+export const handleGetShops = (client: Client) => {
+  try {
+    // Validate input
+    if (!client.userData || !client.userData.userId) {
+      client.send("error", { message: "Invalid message parameters" });
+      return;
+    }
 
-  //   // Validate profile
-  //   const profiles:Profile[] = getCache(PROFILES_CACHE_KEY);
-  //   if (!profiles.some((profile) => profile.ethAddress === client.userData.userId)) {
-  //     client.send("error", { message: "Profile not found. Please create a profile first." });
-  //     return;
-  //   }
+    // Validate profile
+    const profiles:Profile[] = getCache(PROFILES_CACHE_KEY);
+    if (!profiles.some((profile) => profile.ethAddress === client.userData.userId)) {
+      client.send("error", { message: "Profile not found. Please create a profile first." });
+      return;
+    }
 
-  //   let galleryInfo = getCache(ART_GALLERY_CACHE_KEY)
-  //   let mainGallery:any = galleryInfo.find((r:any)=> r.id === "main")
-  //   if(!mainGallery){
-  //     return
-  //   }
+    let shops = getCache(SHOPS_FILE_CACHE_KEY)
 
-  //   let userReservation:any = mainGallery.reservations.find((r:any)=> r.ethAddress === client.userData.userId)
-  //   let currentReservation:any = mainGallery.reservations.find((r:any)=> r.id === mainGallery.currentReservation)
+    shops.forEach((shop:any, shopId:number) => {
+      let currentReservation:any
+      if(shop.currentReservation){
+        currentReservation = shop.reservations.find((res:any)=> res.id === shop.currentReservation)
+      }
 
-  //   let reservations:any[] = []
-  //   if(mainGallery.reservations.length > 0){
-  //     reservations = mainGallery.reservations.map((res:any) => {
-  //       return {
-  //         id:res.id,
-  //         ethAddress:res.ethAddress,
-  //         startDate:res.startDate,
-  //         endDate:res.endDate
-  //       }
-  //     })
-  //   }
-
-  //   client.send(message, {current:currentReservation, user:userReservation, reservations:reservations})
-  // } catch (error) {
-  //   console.error("Error handling get-locations:", error);
-  //   client.send("error", { message: "Internal server error. Please try again later." });
-  // }
+      let userReservation = shop.reservations.find((res:any)=> res.ethAddress === client.userData.userId)
+      client.send('update-shop', {action:"refresh", currentReservation, userReservation, shopId})
+    });
+  } catch (error) {
+    console.error("Error handling get shops:", error);
+    client.send("error", { message: "Internal server error. Please try again later." });
+  }
 };
 
 export const handleMainGalleryReserve = async (room:MainRoom, client: Client, message: { locationId: number; startDate: number, length:number }) => {
@@ -968,6 +957,105 @@ export const handleArtGalleryUpdate = (client: Client, message:any) => {
   }
 };
 
+
+export const handleShopReserve = async (room:MainRoom, client: Client, message: { locationId: number; startDate: number, length:number }) => {
+  const shops = getCache(SHOPS_FILE_CACHE_KEY);
+  const {startDate, length, locationId } = message;
+  const endDate = addDaysToTimestamp(startDate, length)
+
+  console.log('handling shop reserve', message)
+
+  try {
+    // Validate input
+    if (!client.userData || !client.userData.userId || !startDate || !length ) {
+      console.log('invalid reservation parameters')
+      client.send("error", { message: "Invalid message parameters" });
+      return;
+    }
+
+    // Validate profile
+    const profiles:Profile[] = getCache(PROFILES_CACHE_KEY);
+    if (!profiles.some((profile) => profile.ethAddress === client.userData.userId)) {
+      client.send("error", { message: "Profile not found. Please create a profile first." });
+      return;
+    }
+
+    const shop = shops.find((g:any)=> g.id === locationId)
+    if(!shop){
+      console.log('shop not found, cannot reserve')
+      client.send("error", { message: "Invalid message parameters" });
+      return;
+    }
+
+    if(shop.reservations.length > 0){
+      // Validate no conflicts
+      const hasConflict = shop.reservations.some((reservation:any) => {
+        return !(endDate <= reservation.startDate || startDate >= reservation.endDate)
+      })
+
+      if (hasConflict) {
+        console.log('new reservation overlaps with a reservation')
+        client.send("error", { message: "Requested hours overlap" });
+        return;
+      }
+
+      const hasReservation = shop.reservations.find((res:any)=> res.ethAddress === client.userData.userId)
+      if(hasReservation){
+        console.log('user already has reservation')
+        client.send("error", { message: "user already has reservation" });
+        return;
+      }
+    }
+
+    //make sure user has no other shops reserved
+    for(let i = 0; i < shops.length; i++){
+      let shop = shops[i]
+        const hasReservation = shop.reservations.find((res:any)=> res.ethAddress === client.userData.userId)
+        if(hasReservation){
+          console.log('user already has reservation on a shop')
+          client.send("error", { message: "user already has reservation" });
+          return;
+        }
+    }
+
+    // No conflicts, create the reservation
+    const newReservation:any = {
+      id: uuidv4(),
+      ethAddress:client.userData.userId,
+      startDate: startDate, // Start of the first hour
+      endDate: endDate, // End of the last hour
+      images:[],
+      man:{}
+    }
+    for(let i = 0; i < parseInt(process.env.SHOP_IMAGE_LOCATIONS); i++){
+      newReservation.images.push(
+        {
+          "id": i,
+          "src": "",
+          "v": true,
+          "ti": "",
+          "c": false,
+          "desc": "",
+          "t": 0,
+          "b": 22
+        },
+      )
+    }
+
+    shop.reservations.push(newReservation)
+
+    // Update cache and persist to file
+    await updateCache(SHOPS_FILE, SHOPS_FILE_CACHE_KEY, shops);
+
+    console.log('new shop rservation', newReservation.ethAddress, newReservation.id, newReservation.startDate)
+    // Broadcast reservation update to all clients
+    room.broadcast("new-shop-reservation", {newReservation, locationId});
+  } catch (error) {
+    console.error("Error handling art gallery reservation:", error);
+    client.send("error", { message: "Internal server error. Please try again later." });
+  }
+};
+
 export const handleGetDeployments = ( client: Client, message:{reservationId:string}) => {
   console.log('handle get deployments', message)
   try {
@@ -987,7 +1075,7 @@ export const handleGetDeployments = ( client: Client, message:{reservationId:str
     let deployments = getCache(DEPLOYMENT_QUEUE_CACHE_KEY)
     let userDeployments = deployments.filter((dep:any)=> dep.reservationId === message.reservationId && dep.userId === client.userData.userId)
 
-    console.log('user deployments are', userDeployments)
+    // console.log('user deployments are', userDeployments)
 
     client.send('get-deployments', userDeployments)
   } catch (error) {

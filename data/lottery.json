@@ -1,0 +1,49 @@
+[
+  {
+    "id": "bc277a12-5130-4933-a171-1ca782d23348",
+    "items": [
+      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257"
+    ],
+    "name": "Angzaar Lotus Wings",
+    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "chanceToWin": 10,
+    "costToPlay": 0,
+    "status": "finished",
+    "queue": [],
+    "processing": true,
+    "itemsReceived": [],
+    "chances": 0
+  },
+  {
+    "id": "77a949ed-9ae3-4034-bdd2-bdd0fa23a705",
+    "items": [
+      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0:uncommon"
+    ],
+    "name": "Angzaar Lots Wings 2",
+    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "chanceToWin": 10,
+    "costToPlay": 0,
+    "status": "finished",
+    "queue": [],
+    "processing": false,
+    "itemsReceived": [
+      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0"
+    ],
+    "chances": 1
+  },
+  {
+    "id": "3a904f15-dfe6-4249-911f-621bcd003579",
+    "items": [
+      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257"
+    ],
+    "name": "Angzaar Lotus Wings 3",
+    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "chanceToWin": 10,
+    "costToPlay": 0,
+    "status": "pending",
+    "queue": [],
+    "processing": false,
+    "itemsReceived": [],
+    "chances": 0
+  }
+]

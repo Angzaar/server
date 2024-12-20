@@ -3,7 +3,7 @@ const path = require('path');
 import { exec } from "child_process";
 import * as unzipper from "unzipper";
 import { getCache, updateCache } from "./cache";
-import { DEPLOYMENT_QUEUE_CACHE_KEY, DEPLOYMENT_QUEUE_FILE, LOCATIONS_CACHE_KEY, LOCATIONS_FILE } from "./initializer";
+import { DEPLOY_LOCATION, DEPLOYMENT_QUEUE_CACHE_KEY, DEPLOYMENT_QUEUE_FILE, LOCATIONS_CACHE_KEY, LOCATIONS_FILE, TEMP_LOCATION } from "./initializer";
 import { prepareLocationReset } from "./admin";
 
 export type Deployment = {
@@ -40,6 +40,7 @@ export function checkDCLDeploymentQueue(){
 }
 
 export async function processDeployment(deployment:Deployment){
+    console.log('Processing deployment:' + deployment);
     try{
         console.log('Processing deployment:' + deployment.locationId);
 
@@ -58,13 +59,13 @@ export async function processDeployment(deployment:Deployment){
             let userReservaton = location.reservations.find((res:any)=> res.ethAddress === deployment.userId && res.id === deployment.reservationId)
             if(!userReservaton){
                 console.log('no reservation for user, cancel deployment')
-                await fs.remove(path.join(process.env.TEMP_DIR, deployment.file));
+                await fs.remove(path.join(TEMP_LOCATION, deployment.file));
                 throw new Error("No reservation for user")
             }
     
             if(location.id !== deployment.locationId){
                 console.log("deployment location doesnt match reservation")
-                await fs.remove(path.join(process.env.TEMP_DIR, deployment.file));
+                await fs.remove(path.join(TEMP_LOCATION, deployment.file));
                 throw new Error("Location not found for deployment")
             }
 
@@ -84,16 +85,16 @@ export async function processDeployment(deployment:Deployment){
         }
 
         //make sure nothing is in deploy directory
-        await fs.emptyDir(process.env.DEPLOY_DIR)
+        await fs.emptyDir(DEPLOY_LOCATION)
 
         // Step 1: Unzip the file
-        await fs.ensureDir(process.env.TEMP_DIR);
-        await unzip(path.join(process.env.TEMP_DIR, deployment.file), process.env.DEPLOY_DIR);
+        await fs.ensureDir(TEMP_LOCATION);
+        await unzip(path.join(TEMP_LOCATION, deployment.file), DEPLOY_LOCATION);
         console.log(`Unzipped to deploy directory`);
 
         //Delete the zip file
-        await fs.remove(path.join(process.env.TEMP_DIR, deployment.file));
-        console.log(`Deleted temp zip ${process.env.TEMP_DIR}`);
+        await fs.remove(path.join(TEMP_LOCATION, deployment.file));
+        console.log(`Deleted temp zip ${TEMP_LOCATION}`);
 
         deploymentStatus.status = "Verifying Scene..."
         deployments = getCache(DEPLOYMENT_QUEUE_CACHE_KEY);
@@ -101,11 +102,16 @@ export async function processDeployment(deployment:Deployment){
         if(currentDeployment){
             deployment.status = deploymentStatus.status
             await updateCache(DEPLOYMENT_QUEUE_FILE, DEPLOYMENT_QUEUE_CACHE_KEY, deployments);
+        }else{
+            console.log('no deploymeent found')
         }
 
-        let fileData = await fs.promises.readFile(process.env.DEPLOY_DIR + "/scene.json")
+        let fileData = await fs.promises.readFile(DEPLOY_LOCATION + "/scene.json")
         let metadata = JSON.parse(fileData.toString())
-        // console.log('metadata is', metadata)
+
+        
+        let currentParcelsSorted = sortCoordinatesIntoGrid(metadata.scene.parcels)
+        let currentBasePosition = findRowColInGrid(currentParcelsSorted, metadata.scene.base)
 
         metadata.scene.parcels = []
         metadata.scene.base = location.parcels[0]
@@ -114,13 +120,22 @@ export async function processDeployment(deployment:Deployment){
             metadata.scene.parcels.push(parcel)
         })
 
-        await fs.promises.writeFile(process.env.DEPLOY_DIR + "/scene.json", JSON.stringify(metadata,null, 2));
+        if(deployment.reservationId === "admin" && deployment.userId === process.env.DEPLOY_ADDRESS){}
+        else{
+            let sortedLocation = sortCoordinatesIntoGrid(metadata.scene.parcels)
+            let flattenedGrid = flattenGrid(sortedLocation)
+
+            metadata.scene.parcels = flattenedGrid
+            metadata.scene.base = getBaseCoordinateInNewGrid(sortedLocation, currentBasePosition[0], currentBasePosition[1]);
+        }
+
+        await fs.promises.writeFile(DEPLOY_LOCATION + "/scene.json", JSON.stringify(metadata,null, 2));
 
         
         // Step 2: Run `npm install` in the directory
         deploymentStatus.status = "Installing Dependencies"
-        await runCommand(`npm install`, process.env.DEPLOY_DIR);
-        console.log(`Installed dependencies in ${process.env.DEPLOY_DIR}`);
+        await runCommand(`npm install`, DEPLOY_LOCATION);
+        console.log(`Installed dependencies in ${DEPLOY_LOCATION}`);
 
         deployments = getCache(DEPLOYMENT_QUEUE_CACHE_KEY);
         currentDeployment = deployments.find((d:Deployment)=> d.id === deployment.id)
@@ -137,8 +152,8 @@ export async function processDeployment(deployment:Deployment){
             deployment.status = deploymentStatus.status
             await updateCache(DEPLOYMENT_QUEUE_FILE, DEPLOYMENT_QUEUE_CACHE_KEY, deployments);
         }
-        console.log(`Building scene in ${process.env.DEPLOY_DIR}`);
-        await runCommand(`npm run build`, process.env.DEPLOY_DIR);
+        console.log(`Building scene in ${DEPLOY_LOCATION}`);
+        await runCommand(`npm run build`, DEPLOY_LOCATION);
 
         let deployCommand = "DCL_PRIVATE_KEY=" + process.env.DEPLOY_KEY + " " + process.env.DEPLOY_CMD
         console.log('deploying scene ', deployment.id, deployCommand)
@@ -152,7 +167,7 @@ export async function processDeployment(deployment:Deployment){
         }
         
         //deploy scene
-        await runCommand(deployCommand, process.env.DEPLOY_DIR);
+        await runCommand(deployCommand, DEPLOY_LOCATION);
 
         deployments = getCache(DEPLOYMENT_QUEUE_CACHE_KEY);
         currentDeployment = deployments.find((d:Deployment)=> d.id === deployment.id)
@@ -167,13 +182,14 @@ export async function processDeployment(deployment:Deployment){
         await resetDeployment(deployment.id)
     }
     catch(e:any){
+        console.log('error processing deployment', e.message)
         failDeployment(deployment.id, e.message)
     }
 }
 
 export async function resetDeployment(deploymentId:string, reason?:string){
     try{
-        await fs.emptyDir(process.env.DEPLOY_DIR)
+        await fs.emptyDir(DEPLOY_LOCATION)
         console.log('finished emptying deploy directory')
         deploymentStatus.enabled = true
         deploymentStatus.status = "free"
@@ -243,7 +259,7 @@ export function checkDeploymentReservations(){
                     console.log('there is a reservation, need to deploy blank land')
                     delete location.currentReservation
                     updateCache(LOCATIONS_FILE, LOCATIONS_CACHE_KEY, locations)
-                    // prepareLocationReset(location.id)
+                    prepareLocationReset(location.id)
                 }
             }
         })
@@ -253,9 +269,6 @@ export function checkDeploymentReservations(){
     }
 }
 
-/**
- * Helper to unzip a file to a directory.
- */
 const unzip = async (zipPath:string, destPath:string) => {
     return new Promise((resolve, reject) => {
       fs.createReadStream(zipPath)
@@ -265,9 +278,6 @@ const unzip = async (zipPath:string, destPath:string) => {
     });
   };
 
-  /**
- * Helper to run a shell command in a specific directory.
- */
 const runCommand = async (command:any, cwd:any) => {
     return new Promise((resolve, reject) => {
       exec(command, { cwd }, (error, stdout, stderr) => {
@@ -281,3 +291,62 @@ const runCommand = async (command:any, cwd:any) => {
       });
     });
   };
+
+function sortCoordinatesIntoGrid(coords:any) {
+    // Parse the coordinates into numerical tuples
+    const parsedCoords = coords.map((coord:any) => {
+      const [x, y] = coord.split(',').map(Number);
+      return { x, y, original: coord };
+    });
+    
+    // Get unique and sorted x and y values
+    const uniqueX = [...new Set(parsedCoords.map((coord:any) => coord.x))].sort((a:any, b:any) => a - b);
+    const uniqueY = [...new Set(parsedCoords.map((coord:any) => coord.y))].sort((a:any, b:any) => a - b);
+    
+    // Create a 3x3 grid
+    const grid = [];
+    for (let i = uniqueY.length - 1; i >= 0; i--) { // Reverse the rows for north-positive
+      const row = [];
+      for (let j = 0; j < uniqueX.length; j++) { // Keep columns in ascending order for east-positive
+          // Find the coordinate matching the current x and y
+          const match = parsedCoords.find((coord:any) => coord.x === uniqueX[j] && coord.y === uniqueY[i]);
+          row.push(match.original);
+      }
+      grid.push(row);
+    }
+    
+    return grid;
+}
+
+function findRowColInGrid(grid:any, base:any) {
+    for (let row = 0; row < grid.length; row++) {
+        for (let col = 0; col < grid[row].length; col++) {
+            if (grid[row][col] === base) {
+                return [row, col];
+            }
+        }
+    }
+    return null; // Base coordinate not found in the grid
+  }
+
+function getBaseCoordinateInNewGrid(newGrid:any, oldRow:any, oldCol:any) {
+  // Validate the grid dimensions
+  if (newGrid.length !== 3 || !newGrid.every((row:any) => row.length === 3)) {
+      console.error("The new grid must be a 3x3 grid.");
+      return null;
+  }
+
+  // Access the coordinate value at the given row and column
+  return newGrid[oldRow][oldCol] || null;
+}
+
+function flattenGrid(grid:any) {
+    // Validate that the input is a 2D array
+    if (!Array.isArray(grid) || !grid.every(row => Array.isArray(row))) {
+        console.error("The input must be a 2D array.");
+        return [];
+    }
+
+    // Flatten the grid
+    return grid.reduce((flatArray, row) => flatArray.concat(row), []);
+}

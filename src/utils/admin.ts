@@ -1,10 +1,10 @@
 import path from "path"
 import { getCache, updateCache } from "./cache"
-import { LOCATIONS_CACHE_KEY, LOCATIONS_FILE } from "./initializer"
+import { LOCATIONS_CACHE_KEY, LOCATIONS_FILE, TEMP_LOCATION } from "./initializer"
 import { uuidV4 } from "ethers"
 import fs from "fs/promises";
 import archiver from "archiver";
-import { checkDCLDeploymentQueue, deploymentQueue } from "./deployment";
+import { checkDCLDeploymentQueue, checkDeploymentReservations, deploymentQueue } from "./deployment";
 
 
 const { v4: uuidv4 } = require('uuid');
@@ -31,8 +31,8 @@ export async function prepareLocationReset(id:string){
 
     try{
         let fileName = uuidv4()
-        const directoryPath = path.resolve(process.env.TEMP_DIR, "empty-scene"); // Adjust to your directory path
-        const outputZipPath = path.resolve(process.env.TEMP_DIR, fileName + ".zip"); // Path to save the zip file
+        const directoryPath = path.resolve(TEMP_LOCATION, "empty-scene"); // Adjust to your directory path
+        const outputZipPath = path.resolve(TEMP_LOCATION, fileName + ".zip"); // Path to save the zip file
         const jsonFileName = "scene.json"
 
         // Check if the directory exists
@@ -92,6 +92,7 @@ export async function prepareLocationReset(id:string){
                 delete location.reservation
                 updateCache(LOCATIONS_FILE, LOCATIONS_CACHE_KEY, locations)
                 deploymentQueue.push({file:fileName + ".zip", userId:process.env.DEPLOY_ADDRESS, locationId:locationId, id:uuidv4(), reservationId:'admin'})
+                checkDCLDeploymentQueue()
                 resolve()
             });
             stream.on("error", reject);

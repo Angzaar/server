@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": 2,
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": 3,
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": 4,
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": 5,
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": 6,
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": 7,
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": 8,
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  },
+  {
+    "id": 9,
+    "elevator": {
+      "enabled": true,
+      "y": 0.3
+    },
+    "reservations": []
+  }
+]
