@@ -12,14 +12,17 @@ const { v4: uuidv4 } = require('uuid');
 const SLOT_DURATION = 2 * 60 * 60; // 2 hours in seconds
 
 export const validateAndCreateProfile = async (
+  client:Client,
     options:{
       userId: string,
       name: string,
     },
     req: any
-  ): Promise<void> => {
+  ): Promise<any> => {
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.address().address;
     const {userId, name } = options
+
+    console.log('ip is', ipAddress)
 
     // console.log('validating options', options)
 
@@ -69,6 +72,9 @@ export const validateAndCreateProfile = async (
       // Update cache and sync to file
       await updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
     }
+
+    client.userData = options
+    client.userData.ip = ipAddress
   };
 
   export const isBanned = (user:string) => {

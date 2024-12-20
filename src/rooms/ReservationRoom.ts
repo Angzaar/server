@@ -5,6 +5,8 @@ import { loadCache } from "../utils/cache";
 import { ART_GALLERY_FILE, ART_GALLERY_CACHE_KEY } from "../utils/initializer";
 import { validateAndCreateProfile } from "./MainRoomHandlers";
 import { handleGetReservations } from "./ReservationRoomHandlers";
+import { addPlayfabEvent } from "../utils/Playfab";
+import { Player } from "./MainRoom";
 
 export class Vector3 extends Schema {
     @type("number") x: number
@@ -82,6 +84,7 @@ export class Gallery extends Schema {
 }
 
 class ArtRoomState extends Schema {
+   @type({ map: Player }) players = new MapSchema<Player>();
     @type([Gallery]) galleries = new ArraySchema<Gallery>();
 }
 
@@ -90,13 +93,10 @@ export class ReservationRoom extends Room<ArtRoomState> {
     // Authentication and validation logic
     async onAuth(client: Client, options: { userId: string;  name: string }, req:any) {
       try {
-        // Delegate profile validation and creation to the handler
-        await validateAndCreateProfile(options, req);
-        console.log('validated')
-        return true; // Allow the client to join the room
+        await validateAndCreateProfile(client, options, req);
       } catch (error:any) {
         console.error("Error during onAuth:", error.message);
-        throw error; // Reject the client connection
+        throw error;
       }
     }
 
@@ -105,16 +105,29 @@ export class ReservationRoom extends Room<ArtRoomState> {
     this.setState(new ArtRoomState());
 
     // Attach message handlers
-    this.onMessage("get-reservations", (client, message) => handleArtGalleryReservation(this, client, message));
-    this.onMessage("gallery-elevator", (client, message) => handleMoveGalleryElevator(this, client, message));
+    this.onMessage("get-reservations", (client:Client, message) => handleArtGalleryReservation(this, client, message));
+    this.onMessage("gallery-elevator", (client:Client, message) => handleMoveGalleryElevator(this, client, message));
 }
 
   onJoin(client: Client, options:any) {
     console.log(`${client.sessionId} joined the ArtRoom.`);
     try {
       client.userData = options;
+      let player = new Player(options, client)
+      this.state.players.set(options.userId, player)
+
       console.log('setting client data', options)
-      handleGetReservations(this,client)
+      addPlayfabEvent({
+      EventName: 'Player_Joined',
+      Body:{
+        'room': 'Reservations',
+        'player':options.userId,
+        'name':options.name,
+        'ip': client.userData.ip
+      }
+    })
+
+      handleGetReservations(client)
   } catch (e) {
       console.log('on join error', e)
   }
@@ -122,6 +135,17 @@ export class ReservationRoom extends Room<ArtRoomState> {
 
   onLeave(client: Client) {
     console.log(`${client.sessionId} left the ArtRoom.`);
+    let player = this.state.players.get(client.userData.userId)
+    this.state.players.delete(client.userData.userId)
+    addPlayfabEvent({
+      EventName: 'Player_Leave',
+      Body:{
+        'room': 'Reservations',
+        'player':client.userData.userId,
+        'name':client.userData.name,
+        'playTime': Math.floor(Date.now()/1000) - player.startTime
+      }
+    })
   }
 
   onDispose() {

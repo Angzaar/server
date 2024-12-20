@@ -4,6 +4,7 @@ import { cacheSyncToFile, getCache, loadCache, updateCache } from "./cache";
 // import cleanupCron from "./cleanupCron";
 import { Location, Profile } from "./types";
 import { checkDeploymentReservations } from "./deployment";
+import { initPlayfab } from "./Playfab";
 
 dotenv.config();
 
@@ -32,6 +33,8 @@ export const LOTTERY_FILE_CACHE_KEY = process.env.LOTTERY_FILE_CACHE_KEY
 export const NPCS_FILE_CACHE_KEY = process.env.NPCS_FILE_CACHE_KEY
 
 export function initServer(){
+    initPlayfab()
+
     // Initialize cache
     loadCache(PROFILES_FILE, PROFILES_CACHE_KEY);
     loadCache(LOCATIONS_FILE, LOCATIONS_CACHE_KEY);

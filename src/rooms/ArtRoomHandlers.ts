@@ -20,7 +20,7 @@ export const loadGalleryInfo = (room:ArtRoom)=>{
   // }
 }
 
-export const handleArtGalleryReservation = async (room:ArtRoom, client: Client, message: { id:string, startDate: string, length:number }) => {
+export const handleArtGalleryReservation = async (room:any, client: Client, message: { id:string, startDate: string, length:number }) => {
     const { startDate, length, id} = message;
 
     console.log("message is", message)
@@ -45,7 +45,7 @@ export const handleArtGalleryReservation = async (room:ArtRoom, client: Client, 
         return
       }
 
-      let gallery = room.state.galleries.find((gallery) => gallery.id === id)
+      let gallery = room.state.galleries.find((gallery:any) => gallery.id === id)
       if(!gallery){
         client.send("error", { message: "Gallery not found"})
         return
@@ -75,10 +75,10 @@ export const handleArtGalleryReservation = async (room:ArtRoom, client: Client, 
     }
   };
 
-export const handleMoveGalleryElevator = async (room:ArtRoom, client: Client, message: { id:string, action: string }) => {
+export const handleMoveGalleryElevator = async (room:any, client: Client, message: { id:string, action: string }) => {
   const { id, action } = message;
 
-  let gallery = room.state.galleries.find((gallery)=> gallery.id === id)
+  let gallery = room.state.galleries.find((gallery:any)=> gallery.id === id)
   if(!gallery || !gallery.elevator){
     console.log('no gallery or elevator found')
     return

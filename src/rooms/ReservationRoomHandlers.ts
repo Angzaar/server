@@ -5,7 +5,7 @@ import { ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, LOCATIONS_CACHE_KEY, PROFILES_
 import { ArtRoom, Gallery, Reservation } from "./ArtRoom";
 import { start } from "repl";
 
-export const handleGetReservations = async (room:ArtRoom, client: Client) => { 
+export const handleGetReservations = async (client: Client) => { 
     try {
       // Validate input
       if (!client.userData || !client.userData.userId) {

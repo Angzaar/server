@@ -5,21 +5,21 @@ import { getCache, loadCache, updateCache } from "../utils/cache";
 import { Profile } from "../utils/types";
 import { ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
 import { createNPCs, NPC, updateNPCs } from "../utils/npc";
+import { addPlayfabEvent } from "../utils/Playfab";
 
 export class Player extends Schema {
   @type("string") userId:string;
   @type("string") name:string 
   client:Client
+  startTime:any
 
   constructor(args:any, client:Client){
     super(args)
     this.client = client
+    this.startTime = Math.floor(Date.now()/1000)
   }
-
-  // sendMessage(message:any, data:any){
-  //   this.client.send(message, data)
-  // }
 }
+
 export class StreamReserveration extends Schema {
   @type("number") id:number
   @type("string") ethAddress:string;
@@ -38,14 +38,13 @@ class MainState extends Schema {
 }
 
 export class MainRoom extends Room<MainState> {
-    async onAuth(client: Client, options: { userId: string;  name: string }, req:any) {
-      try {
-        await validateAndCreateProfile(options, req);
-        return true;
-      } catch (error:any) {
-        console.error("Error during onAuth:", error.message);
-        throw error;
-      }
+  async onAuth(client: Client, options: { userId: string;  name: string }, req:any) {
+    try {
+      await validateAndCreateProfile(client, options, req);
+    } catch (error:any) {
+      console.error("Error during onAuth:", error.message);
+      throw error;
+    }
     }
 
   onCreate(options:any) {
@@ -98,13 +97,24 @@ export class MainRoom extends Room<MainState> {
   }
 
   onJoin(client: Client, options:any) {
-    console.log(`${client.sessionId} joined the MainRoom.`);
+    console.log(`${client.sessionId} joined the MainRoom.`, options);
     try {
-      client.userData = options;
+      client.userData = { ...client.userData, ...options };
+
       if(!this.state.players.has(options.userId)){
         let player = new Player(options, client)
         this.state.players.set(options.userId, player)
-        console.log('setting client data', options)
+        console.log('setting client data', client.userData)
+
+        addPlayfabEvent({
+          EventName: 'Player_Joined',
+          Body:{
+            'room': 'Art_Gallery',
+            'player':options.userId,
+            'name':options.name,
+            'ip': client.userData.ip
+          }
+        })
       }
     } catch (e) {
         console.log('on join error', e)
@@ -113,7 +123,18 @@ export class MainRoom extends Room<MainState> {
 
   onLeave(client: Client) {
     console.log(`${client.sessionId} left the MainRoom.`);
+    let player = this.state.players.get(client.userData.userId)
     this.state.players.delete(client.userData.userId)
+
+    addPlayfabEvent({
+      EventName: 'Player_Leave',
+      Body:{
+        'room': 'Art_Gallery',
+        'player':client.userData.userId,
+        'name':client.userData.name,
+        'playTime': Math.floor(Date.now()/1000) - player.startTime
+      }
+    })
   }
 
   onDispose() {

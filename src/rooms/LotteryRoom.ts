@@ -4,19 +4,10 @@ import { validateAndCreateProfile } from "./MainRoomHandlers";
 import { getCache } from "../utils/cache";
 import {  LOTTERY_FILE_CACHE_KEY } from "../utils/initializer";
 import { startRefundProcessor, manaContract, connectWeb3, startNFTQueueProcessor, removeNFTListeners, processNewLottery, lotterySignUp, removePlayerFromLotterySignup, transferReceived, setupNFTListeners, cancelLottery } from "../utils/lottery";
+import { addPlayfabEvent } from "../utils/Playfab";
+import { Player } from "./MainRoom";
 
 export let pendingIntents:any = {};
-
-export class Player extends Schema {
-  @type("string") userId:string;
-  @type("string") name:string 
-  client:Client
-
-  constructor(args:any, client:Client){
-    super(args)
-    this.client = client
-  }
-}
 
 class LotteryState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
@@ -25,15 +16,14 @@ class LotteryState extends Schema {
 }
 
 export class LotteryRoom extends Room<LotteryState> {
-    async onAuth(client: Client, options: { userId: string;  name: string }, req:any) {
-      try {
-        await validateAndCreateProfile(options, req);
-        return true;
-      } catch (error:any) {
-        console.error("Error during onAuth:", error.message);
-        throw error;
-      }
+  async onAuth(client: Client, options: { userId: string;  name: string }, req:any) {
+    try {
+      await validateAndCreateProfile(client, options, req);
+    } catch (error:any) {
+      console.error("Error during onAuth:", error.message);
+      throw error;
     }
+  }
 
   onCreate(options:any) {
     this.setState(new LotteryState());
@@ -49,7 +39,8 @@ export class LotteryRoom extends Room<LotteryState> {
         });
     })
 
-    this.onMessage("get-lotteries", (client, message) => {
+    try{
+      this.onMessage("get-lotteries", (client, message) => {
         console.log('getting lotteries')
         client.send('get-lotteries', getCache(LOTTERY_FILE_CACHE_KEY))
     });
@@ -65,16 +56,30 @@ export class LotteryRoom extends Room<LotteryState> {
     this.onMessage("play-chance", (client, message) => {
         lotterySignUp(client, message, this)
     });
+    }
+    catch(e){
+      console.log('error with on message', e)
+    }
   }
 
   onJoin(client: Client, options:any) {
     console.log(`${client.sessionId} joined the MainRoom.`);
     try {
-      client.userData = options;
+      client.userData = { ...client.userData, ...options };
       if(!this.state.players.has(options.userId)){
         let player = new Player(options, client)
         this.state.players.set(options.userId, player)
-        console.log('setting client data', options)
+        console.log('setting client data', client.userData)
+
+        addPlayfabEvent({
+          EventName: 'Player_Joined',
+          Body:{
+            'room': 'Art_Gallery',
+            'player':options.userId,
+            'name':options.name,
+            'ip': client.userData.ip
+          }
+        })
       }
     } catch (e) {
         console.log('on join error', e)
@@ -83,8 +88,18 @@ export class LotteryRoom extends Room<LotteryState> {
 
   onLeave(client: Client) {
     console.log(`${client.sessionId} left the MainRoom.`);
+    let player = this.state.players.get(client.userData.userId)
     this.state.players.delete(client.userData.userId)
     removePlayerFromLotterySignup(client.userData.userId)
+    addPlayfabEvent({
+      EventName: 'Player_Leave',
+      Body:{
+        'room': 'Lottery',
+        'player':client.userData.userId,
+        'name':client.userData.name,
+        'playTime': Math.floor(Date.now()/1000) - player.startTime
+      }
+    })
   }
 
   onDispose() {
