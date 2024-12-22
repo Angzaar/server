@@ -1,12 +1,13 @@
 import { Client, Room } from "colyseus";
 import { getCache, updateCache } from "../utils/cache";
 import { Location, Profile } from "../utils/types";
-import { ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, DEPLOYMENT_QUEUE_CACHE_KEY, LOCATIONS_CACHE_KEY, LOCATIONS_FILE, PROFILES_CACHE_KEY, PROFILES_FILE, SHOPS_FILE, SHOPS_FILE_CACHE_KEY, STREAMS_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
+import { ADMINS_FILE_CACHE_KEY, ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, CUSTOM_ITEMS_FILE_CACHE_KEY, DEPLOYMENT_QUEUE_CACHE_KEY, LOCATIONS_CACHE_KEY, LOCATIONS_FILE, NPCS_FILE_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE, SHOPS_FILE, SHOPS_FILE_CACHE_KEY, STREAMS_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
 import { MainRoom } from "./MainRoom";
 import { addDaysToTimestamp, createFolder } from "../utils/folderUtils";
 import path from "path";
 import { profileExists } from "../utils/profiles";
 import { conferenceImageConfigs, conferenceVideoConfig } from "../utils/conference";
+import { setNPCGrid } from "../utils/npc";
 const { v4: uuidv4 } = require('uuid');
 
 const SLOT_DURATION = 2 * 60 * 60; // 2 hours in seconds
@@ -39,7 +40,7 @@ export const validateAndCreateProfile = async (
     const profiles:Profile[] = getCache(PROFILES_CACHE_KEY);
 
     if(profileExists({userId, ipAddress})){
-      // console.log('we found the profile already exists, do nothing')
+      console.log('we found the profile already exists, do nothing')
     }else{
       console.log("checking for duplicate information before creating new profile")
       // Check for duplicate userId or ipAddress
@@ -65,9 +66,9 @@ export const validateAndCreateProfile = async (
         createdDate: new Date(),
         deployments: 0,
       })
+      console.log('created new profile!')
     }
-  
-      // console.log('profiles are now ', profiles)
+
   
       // Update cache and sync to file
       await updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
@@ -75,6 +76,7 @@ export const validateAndCreateProfile = async (
 
     client.userData = options
     client.userData.ip = ipAddress
+    client.auth = {}
   };
 
   export const isBanned = (user:string) => {
@@ -1086,6 +1088,58 @@ export const handleGetDeployments = ( client: Client, message:{reservationId:str
     client.send('get-deployments', userDeployments)
   } catch (error) {
     console.error("Error handling get-locations:", error);
+    client.send("error", { message: "Internal server error. Please try again later." });
+  }
+};
+
+export const handleGetCustomItems = async (client: Client) => { 
+    console.log('getting custom items')
+    try {
+      // Validate input
+      if (!client.userData || !client.userData.userId) {
+        client.send("error", { message: "Invalid message parameters" });
+        return;
+      }
+
+      let customItems = getCache(CUSTOM_ITEMS_FILE_CACHE_KEY)
+  
+      client.send('get-custom-items', customItems.Items)
+    } catch (error) {
+      console.error("Error handling reservation:", error);
+      client.send("error", { message: "Internal server error. Please try again later." });
+    }
+};
+
+export const handleAdminToggleNPCObstacleScene = async (client: Client, message:any) => { 
+  console.log('admin toggling npc obstacle in scene')
+  let {x,y} = message
+
+  try {
+    // Validate input
+    if (!client.userData || !client.userData.userId) {
+      client.send("error", { message: "Invalid message parameters" });
+      return;
+    }
+
+    // Validate admin
+    const admins = getCache(ADMINS_FILE_CACHE_KEY);
+    let adminUser = admins.find((admin:any)=> admin.userId === client.userData.userId)
+    if (!adminUser) {
+      client.send("error", { message: "Admins not found. Please create a profile first." });
+      return;
+    }
+
+    let npcData = getCache(NPCS_FILE_CACHE_KEY)
+    let position = npcData.grid.find((position:any)=> position.x === x && position.y === y)
+    if(!position){
+      console.log('no npc obstacle position found')
+      return
+    }
+    position.enabled = !position.enabled
+    setNPCGrid(x,y, position.enabled)
+    client.send('toggle-npc-grid', {x,y, enabled:position.enabled})
+  } catch (error) {
+    console.error("Error handling reservation:", error);
     client.send("error", { message: "Internal server error. Please try again later." });
   }
 };

@@ -28,9 +28,9 @@ export function initPlayfab(){
 }
 
 export function addPlayfabEvent(event:any){
-  // if(process.env.ENV === "Production"){
+  if(process.env.ENV === "Production"){
     eventQueue.push(event)
-  // }
+  }
 }
 
 async function checkEventQueue(){

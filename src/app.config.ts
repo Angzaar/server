@@ -11,6 +11,7 @@ import { initServer } from "./utils/initializer";
 import { ArtRoom } from "./rooms/ArtRoom";
 import { router } from "./router";
 import { LotteryRoom } from "./rooms/LotteryRoom";
+import { AdminRoom } from "./rooms/AdminRoom";
 
 export default config({
     initializeGameServer: (gameServer) => {
@@ -20,6 +21,7 @@ export default config({
         gameServer.define('angzaar_plaza_gallery', MainRoom);
         gameServer.define('angzaar_plaza_reservations', MainRoom);
         gameServer.define('angzaar_plaza_dapp', MainRoom);
+        gameServer.define('angzaar_plaza_admin', AdminRoom);
         gameServer.define('angzaar_plaza_lottery', LotteryRoom);
     },
 

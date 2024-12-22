@@ -1,11 +1,12 @@
 import { Room, Client, ServerError } from "colyseus";
 import { Schema, type, ArraySchema, MapSchema } from "@colyseus/schema";
-import { handleCancelReservation, handleConferenceCancel, handleConferenceImageUpdate, handleConferenceReserve, handleConferenceVideoUpdate, handleGetMainGallery, handleGetConference, handleGetLocations, handleGetReservation, handleGetStreams, handleReserve, handleReserveStream, validateAndCreateProfile, handleArtGalleryUpdate, handleMainGalleryCancel, handleMainGalleryReserve, handleGetLocationReservations, handleGetDeployments, handleGetShops } from "./MainRoomHandlers";
+import { handleCancelReservation, handleConferenceCancel, handleConferenceImageUpdate, handleConferenceReserve, handleConferenceVideoUpdate, handleGetMainGallery, handleGetConference, handleGetLocations, handleGetReservation, handleGetStreams, handleReserve, handleReserveStream, validateAndCreateProfile, handleArtGalleryUpdate, handleMainGalleryCancel, handleMainGalleryReserve, handleGetLocationReservations, handleGetDeployments, handleGetShops, handleGetCustomItems, handleAdminToggleNPCObstacleScene } from "./MainRoomHandlers";
 import { getCache, loadCache, updateCache } from "../utils/cache";
 import { Profile } from "../utils/types";
 import { ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
 import { createNPCs, NPC, updateNPCs } from "../utils/npc";
 import { addPlayfabEvent } from "../utils/Playfab";
+import { addRoom, removeRoom } from ".";
 
 export class Player extends Schema {
   @type("string") userId:string;
@@ -41,6 +42,7 @@ export class MainRoom extends Room<MainState> {
   async onAuth(client: Client, options: { userId: string;  name: string }, req:any) {
     try {
       await validateAndCreateProfile(client, options, req);
+      return true
     } catch (error:any) {
       console.error("Error during onAuth:", error.message);
       throw error;
@@ -50,6 +52,7 @@ export class MainRoom extends Room<MainState> {
   onCreate(options:any) {
     this.setState(new MainState());
     this.clock.start()
+    addRoom(this)
 
     // Set up a 1-second interval to check reservations
     this.checkConferenceReservations();
@@ -86,8 +89,8 @@ export class MainRoom extends Room<MainState> {
     this.onMessage("store-reservation", (client, message) => handleMainGalleryReserve(this, client, message));
 
     this.onMessage("get-deployments", (client, message) => handleGetDeployments(client, message));
-
-
+    this.onMessage("get-custom-items", (client, message) => handleGetCustomItems(client));
+    this.onMessage("toggle-npc-obstacle", (client, message) => handleAdminToggleNPCObstacleScene(client, message));
 
     createNPCs(this).then(()=>{
       this.clock.setInterval(()=>{
@@ -139,6 +142,7 @@ export class MainRoom extends Room<MainState> {
 
   onDispose() {
     console.log("MainRoom disposed!");
+    removeRoom(this)
   }
 
   checkConferenceReservations() {

@@ -130,8 +130,8 @@ export async function createNPCs(room:MainRoom){
 }
 
 function addNPCs(room:MainRoom){
-    let npcs = getCache(NPCS_FILE_CACHE_KEY)
-    npcs.filter((npc:any)=> npc.l === "Cyberpunk City").forEach((npc:any)=>{
+    let npcData = getCache(NPCS_FILE_CACHE_KEY)
+    npcData.npcs.filter((npc:any)=> npc.l === "Cyberpunk City").forEach((npc:any)=>{
         let newConfig = {...npc}
         newConfig.speed = 0.4
         if(!npc.w.r){
@@ -143,9 +143,25 @@ function addNPCs(room:MainRoom){
 }
 
 function createGrid(){
-    markStores()
-    markArtGallery()
-    markLandscaping()
+  let npcData = getCache(NPCS_FILE_CACHE_KEY)
+  let gridInfo = npcData.grid
+  if(!gridInfo){
+    console.log('no grid info to set enabled',)
+    return
+  }
+//     markStores()
+//     markArtGallery()
+//     markLandscaping()
+    gridInfo.forEach((item:any)=>{
+      setNPCGrid(item.x, item.y, item.enabled)
+    })
+}
+
+export function setNPCGrid(x:number, y:number, enabled:boolean){
+  if (grid.isInside(x, y)) {
+    // console.log('x y inside grid, mark unwalkable', x, y)
+    grid.setWalkableAt(x, y, enabled);
+}
 }
 
 function getRandomWalkablePosition() {
@@ -242,4 +258,4 @@ function markCircleAsUnwalkable(grid:any, centerX:number, centerY:number, radius
         }
       }
     }
-  }
+}

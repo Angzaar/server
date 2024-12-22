@@ -21,6 +21,8 @@ export const CONFERENCE_FILE = path.join(DATA_LOCATION, process.env.CONFERENCE_F
 export const SHOPS_FILE = path.join(DATA_LOCATION, process.env.SHOPS_FILE)
 export const LOTTERY_FILE = path.join(DATA_LOCATION, process.env.LOTTERY_FILE)
 export const NPCS_FILE = path.join(DATA_LOCATION, process.env.NPCS_FILE)
+export const ADMINS_FILE = path.join(DATA_LOCATION, process.env.ADMINS_FILE)
+export const CUSTOM_ITEMS_FILE = path.join(DATA_LOCATION, process.env.CUSTOM_ITEMS_FILE)
 
 export const PROFILES_CACHE_KEY = process.env.PROFILE_CACHE_KEY
 export const LOCATIONS_CACHE_KEY = process.env.LOCATIONS_CACHE_KEY
@@ -31,6 +33,8 @@ export const CONFERENCE_FILE_CACHE_KEY = process.env.CONFERENCE_FILE_CACHE_KEY
 export const SHOPS_FILE_CACHE_KEY = process.env.SHOPS_FILE_CACHE_KEY
 export const LOTTERY_FILE_CACHE_KEY = process.env.LOTTERY_FILE_CACHE_KEY
 export const NPCS_FILE_CACHE_KEY = process.env.NPCS_FILE_CACHE_KEY
+export const ADMINS_FILE_CACHE_KEY = process.env.ADMINS_FILE_CACHE_KEY
+export const CUSTOM_ITEMS_FILE_CACHE_KEY = process.env.CUSTOM_ITEMS_FILE_CACHE_KEY
 
 export function initServer(){
     initPlayfab()
@@ -45,6 +49,8 @@ export function initServer(){
     loadCache(SHOPS_FILE, SHOPS_FILE_CACHE_KEY);
     loadCache(LOTTERY_FILE, LOTTERY_FILE_CACHE_KEY);
     loadCache(NPCS_FILE, NPCS_FILE_CACHE_KEY)
+    loadCache(ADMINS_FILE, ADMINS_FILE_CACHE_KEY)
+    loadCache(CUSTOM_ITEMS_FILE, CUSTOM_ITEMS_FILE_CACHE_KEY)
 
     // Save cache to disk periodically
     setInterval(async () => {
@@ -57,6 +63,8 @@ export function initServer(){
         const shops = getCache(SHOPS_FILE_CACHE_KEY)
         const lottery = getCache(LOTTERY_FILE_CACHE_KEY)
         const npcs = getCache(NPCS_FILE_CACHE_KEY)
+        const admins = getCache(ADMINS_FILE_CACHE_KEY)
+        const customItems = getCache(CUSTOM_ITEMS_FILE_CACHE_KEY)
 
         await cacheSyncToFile(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
         await cacheSyncToFile(LOCATIONS_FILE, LOCATIONS_CACHE_KEY, locations);
@@ -67,6 +75,8 @@ export function initServer(){
         await cacheSyncToFile(SHOPS_FILE, SHOPS_FILE_CACHE_KEY, shops);
         await cacheSyncToFile(LOTTERY_FILE, LOTTERY_FILE_CACHE_KEY, lottery);
         await cacheSyncToFile(NPCS_FILE, NPCS_FILE_CACHE_KEY, npcs);
+        await cacheSyncToFile(ADMINS_FILE, ADMINS_FILE_CACHE_KEY, admins);
+        await cacheSyncToFile(CUSTOM_ITEMS_FILE, CUSTOM_ITEMS_FILE_CACHE_KEY, customItems);
     }, Number(process.env.CACHE_REFRESH_INTERVAL_S) * 1000);
 
     //deployment interval check

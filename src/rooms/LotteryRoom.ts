@@ -19,6 +19,7 @@ export class LotteryRoom extends Room<LotteryState> {
   async onAuth(client: Client, options: { userId: string;  name: string }, req:any) {
     try {
       await validateAndCreateProfile(client, options, req);
+      return true
     } catch (error:any) {
       console.error("Error during onAuth:", error.message);
       throw error;
