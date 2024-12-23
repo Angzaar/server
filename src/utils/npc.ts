@@ -1,7 +1,9 @@
 import { Schema, type, ArraySchema, MapSchema } from "@colyseus/schema";
 import { MainRoom } from "../rooms/MainRoom";
-import { getCache } from "./cache";
+import { getCache, updateCache } from "./cache";
 import { NPCS_FILE_CACHE_KEY } from "./initializer";
+import { Client, Room } from "colyseus";
+import { mainRooms } from "../rooms";
 
 const pathfinding = require('pathfinding');
 
@@ -10,13 +12,23 @@ const gridHeight = 112;
 const grid = new pathfinding.Grid(gridWidth, gridHeight);
 const AStarFinder = pathfinding.AStarFinder;
 
+const xOffset = 16
+const yOffset = 48
+
 export class NPC extends Schema {
   @type("string") id:string;
   @type("string") n:string
   @type("number") x:number
   @type("number") y:number
   @type("number") z:number
+  @type("number") rx:number
+  @type("number") ry:number
+  @type("number") rz:number
+  @type("number") sx:number
+  @type("number") sy:number
+  @type("number") sz:number
   @type("boolean") isMoving:boolean = false
+  @type("boolean") canWalk:boolean
   @type("boolean") c:boolean //custom model
   @type("boolean") randomWearables:boolean
   @type(["string"]) wearables:ArraySchema<string> = new ArraySchema()
@@ -26,13 +38,26 @@ export class NPC extends Schema {
   entity:any
   room:MainRoom
 
+  updateInterval:any
+  dclInterval:any
+  config:any
+
   constructor(args:any, room:MainRoom){
     super(args)
     this.room = room
+    this.config = args
 
-    const position = getRandomWalkablePosition();
-    this.x = position.x
-    this.y = position.y
+    this.x = args.t.p[0]
+    this.y = args.t.p[1]
+    this.z = args.t.p[2]
+
+    this.rx = args.t.r[0]
+    this.ry = args.t.r[1]
+    this.rz = args.t.r[2]
+
+    this.sx = args.t.s[0]
+    this.sy = args.t.s[1]
+    this.sz = args.t.s[2]
 
     if(args.wearables){
         args.wearables.forEach((wearable:string)=>{
@@ -40,13 +65,16 @@ export class NPC extends Schema {
         })
     }
 
+    if(this.canWalk){
+      this.startWalking()
+    }
   }
     // Use A* to find a path to a target location
   moveTo(targetX:number, targetY:number) {
     const finder = new AStarFinder();
-    // console.log('got here', this.x, this.y)
-    const path = finder.findPath(this.x, this.y, targetX, targetY, grid.clone()); // Clone grid for safe re-use
-    // console.log('now got here')
+    // console.log('got here', this.x, this.z)
+    const path = finder.findPath(this.x, this.z, targetX, targetY, grid.clone()); // Clone grid for safe re-use
+    // console.log('now got here', path)
     // If a path is found, set it for the NPC
     if (path.length > 0) {
       this.path = path.slice(1); // Remove current position
@@ -58,14 +86,14 @@ export class NPC extends Schema {
 
   // Move the NPC along the calculated path based on speed
   move(deltaTime:number) {
-    if (this.isMoving && this.path.length > 0) {
+    if (this.isMoving && this.path.length > 0 && this.canWalk) {
       const nextStep = this.path[0]; // Get the next step in the path
       const targetX = nextStep[0];
       const targetY = nextStep[1];
 
       // Calculate how much the NPC should move based on speed and deltaTime
       const distanceX = targetX - this.x;
-      const distanceY = targetY - this.y;
+      const distanceY = targetY - this.z;
       const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY); // Euclidean distance
 
       // Move towards the target position by a fraction of the distance based on speed
@@ -74,21 +102,21 @@ export class NPC extends Schema {
       if (moveDistance >= distance) {
         // If the NPC can reach the target in this frame, move directly to it
         this.x = targetX;
-        this.y = targetY;
+        this.z = targetY;
         this.path.shift(); // Remove the step from the path
       } else {
         // Otherwise, move a fraction of the distance towards the target
         const moveFraction = moveDistance / distance;
         this.x += moveFraction * distanceX;
-        this.y += moveFraction * distanceY;
+        this.z += moveFraction * distanceY;
       }
 
-      this.room.broadcast('move-npc', {id:this.id, targetX:targetX, targetY:targetY})
+      // this.room.broadcast('move-npc', {id:this.id, targetX:targetX, targetY:targetY})
 
       // If the path is empty, stop moving
       if (this.path.length === 0) {
         this.isMoving = false;
-        // console.log(`NPC ${this.id} reached target: (${this.x.toFixed(2)}, ${this.y.toFixed(2)})`);
+        // console.log(`NPC ${this.id} reached target: (${this.x.toFixed(2)}, ${this.z.toFixed(2)})`);
       }
     }
   }
@@ -106,40 +134,171 @@ export class NPC extends Schema {
         randomY = Math.floor(Math.random() * grid.height);
       }
 
-    //   console.log('new target', randomX, randomY)
+      // console.log('new target', randomX, randomY)
 
       // Move to the new target
       this.moveTo(randomX, randomY);
     }
   }
+
+  startWalking(){
+    this.x += xOffset
+    this.z += yOffset
+    
+    this.updateInterval = setInterval(()=>{
+      this.canWalk = true
+      const deltaTime = 1;
+      this.move(deltaTime);
+      this.checkAndRoam();
+    }, 50)
+  }
+
+  stopWalking(){
+    this.canWalk = false
+    clearInterval(this.updateInterval)
+    this.isMoving = false
+    this.x = this.config.t.p[0]
+    this.z = this.config.t.p[2]
+    
+  }
 }
 
-export function updateNPCs(room:MainRoom) {
-    const deltaTime = 1; // Fixed time step for 50ms updates
-
-    room.state.npcs.forEach((npc:NPC) => {
-      npc.move(deltaTime); // Move each NPC
-      npc.checkAndRoam(); // Check if each NPC needs to pick a new target
-    //   console.log(`NPC ${npc.id} Position: (${npc.x.toFixed(2)}, ${npc.y.toFixed(2)})`);
-    });
+export function stopWalkingNPC(room:MainRoom, id:string){
+  console.log('stop walking npc', id)
+  let npc = room.state.npcs.get(id)
+  if(!npc){
+    return
   }
+  npc.stopWalking()
+  room.broadcast('npc-stop-walking', {id, pos:npc.config.t.p})
+}
+
+export function startWalkingNPC(room:MainRoom, id:string){
+  console.log('start walking npc', id)
+  let npc = room.state.npcs.get(id)
+  if(!npc){
+    return
+  }
+  npc.startWalking()
+}
+
+export function stopNPCPaths(room:MainRoom){
+  room.state.npcs.forEach((npc:NPC)=>{
+    npc.stopWalking()
+  })
+}
+
+export function updateNPC(client:Client, message:any){
+  let npcData = getCache(NPCS_FILE_CACHE_KEY)
+  let npc = npcData.npcs.find((item:any)=> item.id === message.id)
+  if(!npc){
+    console.log('no item found to edit')
+    return
+  }
+  
+  switch(message.action){
+    case 'display-name':
+      npc.dn = message.value
+      mainRooms.forEach((room:MainRoom)=>{    
+        room.broadcast('npc-update', message)
+    })
+      break;
+
+    case 'model':
+        npc.m = message.value
+        break;
+
+    case 'walking':
+        npc.p.e = message.value
+        mainRooms.forEach((room:MainRoom)=>{    
+            if(message.value){
+                startWalkingNPC(room, npc.id)
+            }else{
+                stopWalkingNPC(room, npc.id)
+            }
+        })
+        break;
+
+    case 'status':
+        npc.en = message.value
+        mainRooms.forEach((room:MainRoom)=>{
+            if(message.value){
+                enableNPC(room, npc)
+            }else{
+                disableNPC(room, npc)
+            }
+        })
+        break;
+
+    case 'transform':
+        npc.t[message.field][message.axis] += (message.direction * message.modifier)
+
+        mainRooms.forEach((room:MainRoom)=>{
+            let roomNPC = room.state.npcs.get(npc.id)
+            if(!roomNPC){
+                return
+            }
+            roomNPC.x = npc.t.p[0]
+            roomNPC.y = npc.t.p[1]
+            roomNPC.z = npc.t.p[2]
+
+            roomNPC.rx = npc.t.r[0]
+            roomNPC.ry = npc.t.r[1]
+            roomNPC.rz = npc.t.r[2]
+
+            roomNPC.sx = npc.t.s[0]
+            roomNPC.sy = npc.t.s[1]
+            roomNPC.sz = npc.t.s[2]
+
+            room.broadcast('npc-update', message)
+        })
+        break;
+  }
+}
+
+export function enableNPC(room:MainRoom, config:any){
+  addNPC(room, config)
+}
+
+export function disableNPC(room:MainRoom, config:any){
+  let npc = room.state.npcs.get(config.id)
+  if(!npc){
+    return
+  }
+  npc.stopWalking()
+  room.state.npcs.delete(config.id)
+} 
 
 export async function createNPCs(room:MainRoom){
     await createGrid()
-    await addNPCs(room)
+    // await addNPCs(room)
+
+    let npcData = getCache(NPCS_FILE_CACHE_KEY)
+    let enabledNPCs = [...npcData.npcs.filter((npc:any)=> npc.en)]
+    console.log('enabled npcs are ', enabledNPCs)
+    addNPCs(room, enabledNPCs)
+
 }
 
-function addNPCs(room:MainRoom){
-    let npcData = getCache(NPCS_FILE_CACHE_KEY)
-    npcData.npcs.filter((npc:any)=> npc.l === "Cyberpunk City").forEach((npc:any)=>{
-        let newConfig = {...npc}
-        newConfig.speed = 0.4
-        if(!npc.w.r){
-            newConfig.wearables = npc.w.i
-        }
-        const newNPC = new NPC(newConfig, room);
-        room.state.npcs.set(npc.id, newNPC)
-    })
+export function addNPC(room:MainRoom, config:any){
+  console.log('adding npc', config.n)
+  let newConfig = {...config}
+  if(!config.w.r){
+      newConfig.wearables = config.w.i
+  }
+  newConfig.canWalk = config.p.e
+  const newNPC = new NPC(newConfig, room);
+  room.state.npcs.set(config.id, newNPC)
+}
+
+function addNPCs(room:MainRoom, npcs:any[]){
+  if(npcs.length > 0){
+    let nextNPC = npcs.shift()
+    addNPC(room, nextNPC)
+    setTimeout(()=>{
+      addNPCs(room, npcs)
+    }, Math.random() * 1000)
+  }
 }
 
 function createGrid(){

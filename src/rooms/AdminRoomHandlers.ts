@@ -4,24 +4,31 @@ import { Profile } from "../utils/types";
 import { ADMINS_FILE_CACHE_KEY, ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CUSTOM_ITEMS_FILE_CACHE_KEY, LOCATIONS_CACHE_KEY, NPCS_FILE_CACHE_KEY, PROFILES_CACHE_KEY } from "../utils/initializer";
 import { v4 } from "uuid";
 import { mainRooms } from ".";
+import { addNPC, disableNPC, enableNPC, startWalkingNPC, stopWalkingNPC, updateNPC } from "../utils/npc";
+import { MainRoom } from "./MainRoom";
+
+export async function validateAdmin(client:Client){
+    if(!client){
+        console.log('no admin client')
+        throw new Error("unauthorized")
+    }
+
+    if (!client.userData || !client.userData.userId) {
+        throw new Error("unauthorized")
+    }
+
+    const admins = getCache(ADMINS_FILE_CACHE_KEY);
+    let adminUser = admins.find((admin:any)=> admin.userId === client.userData.userId)
+    if (!adminUser) {
+      throw new Error("unauthorized")
+    }
+}
 
 export const handleGetCustomItems = async (client: Client) => { 
     console.log('getting custom items')
     try {
-      // Validate input
-      if (!client.userData || !client.userData.userId) {
-        client.send("error", { message: "Invalid message parameters" });
-        return;
-      }
-  
-      // Validate admin
-      const admins = getCache(ADMINS_FILE_CACHE_KEY);
-      let adminUser = admins.find((admin:any)=> admin.userId === client.userData.userId)
-      if (!adminUser) {
-        client.send("error", { message: "Admins not found. Please create a profile first." });
-        return;
-      }
-      client.send('get-custom-items', getCache(CUSTOM_ITEMS_FILE_CACHE_KEY))
+        await validateAdmin(client)
+        client.send('get-custom-items', getCache(CUSTOM_ITEMS_FILE_CACHE_KEY))
     } catch (error) {
       console.error("Error handling reservation:", error);
       client.send("error", { message: "Internal server error. Please try again later." });
@@ -31,22 +38,11 @@ export const handleGetCustomItems = async (client: Client) => {
 export const handleAddModel = async (client: Client, model:any) => { 
     console.log('add model file')
     try {
-      // Validate input
-      if (!client.userData || !client.userData.userId) {
-        client.send("error", { message: "Invalid message parameters" });
-        return;
-      }
-  
-      // Validate admin
-      const admins = getCache(ADMINS_FILE_CACHE_KEY);
-      let adminUser = admins.find((admin:any)=> admin.userId === client.userData.userId)
-      if (!adminUser) {
-        client.send("error", { message: "Admins not found. Please create a profile first." });
-        return;
-      }
-      let customItems = getCache(CUSTOM_ITEMS_FILE_CACHE_KEY)
-      customItems.Models.push(model)
-      client.send('add-custom-model', model)
+        await validateAdmin(client) 
+
+        let customItems = getCache(CUSTOM_ITEMS_FILE_CACHE_KEY)
+        customItems.Models.push(model)
+        client.send('add-custom-model', model)
     } catch (error) {
       console.error("Error handling reservation:", error);
       client.send("error", { message: "Internal server error. Please try again later." });
@@ -57,36 +53,25 @@ export const handleAddCustomItem = async (client: Client, info:any) => {
     console.log('add custom item', info)
     let {itemData, transform } = info
     try {
-      // Validate input
-      if (!client.userData || !client.userData.userId) {
-        client.send("error", { message: "Invalid message parameters" });
-        return;
-      }
-  
-      // Validate admin
-      const admins = getCache(ADMINS_FILE_CACHE_KEY);
-      let adminUser = admins.find((admin:any)=> admin.userId === client.userData.userId)
-      if (!adminUser) {
-        client.send("error", { message: "Admins not found. Please create a profile first." });
-        return;
-      }
-      let customItems = getCache(CUSTOM_ITEMS_FILE_CACHE_KEY)
+        await validateAdmin(client)
 
-      let item:any={
-        id:v4(),
-        type:itemData.type,
-        name:itemData.name,
-        model:itemData.model,
-        enabled:itemData.status === "Enabled" ? true : false,
-        collection:"",
-        transform:transform
-      }
-      customItems.Items.push(item)
-      client.send('add-custom-item', item)
+        let customItems = getCache(CUSTOM_ITEMS_FILE_CACHE_KEY)
 
-      mainRooms.forEach((room:Room)=>{
-        room.broadcast('custom-item-add', item)
-        })
+        let item:any={
+            id:v4(),
+            type:itemData.type,
+            name:itemData.name,
+            model:itemData.model,
+            enabled:itemData.status === "Enabled" ? true : false,
+            collection:"",
+            transform:transform
+        }
+        customItems.Items.push(item)
+        client.send('add-custom-item', item)
+
+        mainRooms.forEach((room:Room)=>{
+            room.broadcast('custom-item-add', item)
+            })
 
     } catch (error) {
       console.error("Error handling reservation:", error);
@@ -97,37 +82,34 @@ export const handleAddCustomItem = async (client: Client, info:any) => {
 export const handleCustomItemUpdate = async (client: Client, message:any) => { 
     console.log('handle custom item update', message)
     try {
-      // Validate input
-      if (!client.userData || !client.userData.userId) {
-        client.send("error", { message: "Invalid message parameters" });
-        return;
-      }
-      let customItems = getCache(CUSTOM_ITEMS_FILE_CACHE_KEY)
-      let item = customItems.Items.find((item:any)=> item.id === message.id)
-      if(!item){
-        console.log('no item found to edit')
-        return
-      }
+        await validateAdmin(client)
 
-      switch(message.action){
-        case 'model':
-            item.model = message.value
-            break;
+        let customItems = getCache(CUSTOM_ITEMS_FILE_CACHE_KEY)
+        let item = customItems.Items.find((item:any)=> item.id === message.id)
+        if(!item){
+            console.log('no item found to edit')
+            return
+        }
 
-        case 'status':
-            item.enabled = !item.enabled
-            break;
+        switch(message.action){
+            case 'model':
+                item.model = message.value
+                break;
 
-        case 'transform':
-            console.log('item transform is', item.transform)
-            item.transform[message.field][message.axis] += (message.direction * message.modifier)
-            console.log('item tranform now is', item.transform)
-            break;
-      }
+            case 'status':
+                item.enabled = !item.enabled
+                break;
 
-    mainRooms.forEach((room:Room)=>{
-        room.broadcast('custom-item-update', message)
-    })
+            case 'transform':
+                console.log('item transform is', item.transform)
+                item.transform[message.field][message.axis] += (message.direction * message.modifier)
+                console.log('item tranform now is', item.transform)
+                break;
+        }
+
+        mainRooms.forEach((room:Room)=>{
+            room.broadcast('custom-item-update', message)
+        })
 
     } catch (error) {
       console.error("Error handling reservation:", error);
@@ -224,3 +206,14 @@ export const handleNPCTabSelection = async (client: Client, selection:string) =>
       client.send("error", { message: "Internal server error. Please try again later." });
     }
 };
+
+export const handleNPCUpdate = async (client: Client, message:any) => { 
+    console.log('handle npc update', message)
+    try {
+      await validateAdmin(client)
+      updateNPC(client, message)
+    } catch (error) {
+      console.error("Error handling reservation:", error);
+      client.send("error", { message: "Internal server error. Please try again later." });
+    }
+  };

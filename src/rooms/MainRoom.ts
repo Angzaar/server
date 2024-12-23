@@ -4,7 +4,7 @@ import { handleCancelReservation, handleConferenceCancel, handleConferenceImageU
 import { getCache, loadCache, updateCache } from "../utils/cache";
 import { Profile } from "../utils/types";
 import { ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
-import { createNPCs, NPC, updateNPCs } from "../utils/npc";
+import { createNPCs, NPC, stopNPCPaths } from "../utils/npc";
 import { addPlayfabEvent } from "../utils/Playfab";
 import { addRoom, removeRoom } from ".";
 
@@ -92,11 +92,7 @@ export class MainRoom extends Room<MainState> {
     this.onMessage("get-custom-items", (client, message) => handleGetCustomItems(client));
     this.onMessage("toggle-npc-obstacle", (client, message) => handleAdminToggleNPCObstacleScene(client, message));
 
-    createNPCs(this).then(()=>{
-      this.clock.setInterval(()=>{
-        updateNPCs(this)
-      }, 100)
-    })
+    createNPCs(this)
   }
 
   onJoin(client: Client, options:any) {
@@ -143,6 +139,7 @@ export class MainRoom extends Room<MainState> {
   onDispose() {
     console.log("MainRoom disposed!");
     removeRoom(this)
+    stopNPCPaths(this)
   }
 
   checkConferenceReservations() {

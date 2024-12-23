@@ -3,10 +3,10 @@ import { Schema, type, ArraySchema, MapSchema } from "@colyseus/schema";
 import { handleCancelReservation, handleConferenceCancel, handleConferenceImageUpdate, handleConferenceReserve, handleConferenceVideoUpdate, handleGetMainGallery, handleGetConference, handleGetLocations, handleGetReservation, handleGetStreams, handleReserve, handleReserveStream, validateAndCreateProfile, handleArtGalleryUpdate, handleMainGalleryCancel, handleMainGalleryReserve, handleGetLocationReservations, handleGetDeployments, handleGetShops } from "./MainRoomHandlers";
 import { getCache, loadCache, updateCache } from "../utils/cache";
 import { Profile } from "../utils/types";
-import { ADMINS_FILE_CACHE_KEY, ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
-import { createNPCs, NPC, updateNPCs } from "../utils/npc";
+import { ADMINS_FILE_CACHE_KEY, ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, NPCS_FILE_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
 import { addPlayfabEvent } from "../utils/Playfab";
-import { handleAddCustomItem, handleAddModel, handleCustomItemUpdate, handleDeleteCustomItem, handleGetCustomItems, handleGetNPCs, handleNPCTabSelection } from "./AdminRoomHandlers";
+import { handleAddCustomItem, handleAddModel, handleCustomItemUpdate, handleDeleteCustomItem, handleGetCustomItems, handleGetNPCs, handleNPCTabSelection, handleNPCUpdate } from "./AdminRoomHandlers";
+import { mainRooms } from ".";
 
 export class Player extends Schema {
   @type("string") userId:string;
@@ -53,6 +53,7 @@ export class AdminRoom extends Room<MainState> {
     this.onMessage("custom-item-delete", (client, message) => handleDeleteCustomItem(client, message));
     this.onMessage("get-npcs", (client, message) => handleGetNPCs(client));
     this.onMessage("npc-tab-selection", (client, message) => handleNPCTabSelection(client, message));
+    this.onMessage("npc-update", (client, message) => handleNPCUpdate(client, message));
   }
 
   onJoin(client: Client, options:any) {
@@ -66,9 +67,8 @@ export class AdminRoom extends Room<MainState> {
         console.log('setting client data', client.userData)
 
         addPlayfabEvent({
-          EventName: 'Player_Joined',
+          EventName: 'Admin_Joined',
           Body:{
-            'room': 'Art_Gallery',
             'player':options.userId,
             'name':options.name,
             'ip': client.userData.ip
@@ -94,6 +94,11 @@ export class AdminRoom extends Room<MainState> {
   }
 
   onDispose() {
-    console.log("MainRoom disposed!");
+    console.log("Admin Room disposed!");
+    mainRooms.forEach((room:Room)=>{
+        room.state.players.forEach((player:Player)=>{
+            player.client.send('npc-toggle-selection', {selection:'npcs'})
+        })
+    })
   }
 }
