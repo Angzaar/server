@@ -3,11 +3,23 @@ import { Schema, type, ArraySchema, MapSchema } from "@colyseus/schema";
 import { validateAndCreateProfile } from "./MainRoomHandlers";
 import { getCache } from "../utils/cache";
 import {  LOTTERY_FILE_CACHE_KEY } from "../utils/initializer";
-import { startRefundProcessor, manaContract, connectWeb3, startNFTQueueProcessor, removeNFTListeners, processNewLottery, lotterySignUp, removePlayerFromLotterySignup, transferReceived, setupNFTListeners, cancelLottery } from "../utils/lottery";
+import { startRefundProcessor, manaContract, connectWeb3, startNFTQueueProcessor, removeNFTListeners, processNewLottery, lotterySignUp, removePlayerFromLotterySignup, cancelLottery } from "../utils/lottery";
 import { addPlayfabEvent } from "../utils/Playfab";
-import { Player } from "./MainRoom";
 
 export let pendingIntents:any = {};
+
+export class Player extends Schema {
+  @type("string") userId:string;
+  @type("string") name:string 
+  client:Client
+  startTime:any
+
+  constructor(args:any, client:Client){
+    super(args)
+    this.client = client
+    this.startTime = Math.floor(Date.now()/1000)
+  }
+}
 
 class LotteryState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
@@ -30,21 +42,21 @@ export class LotteryRoom extends Room<LotteryState> {
     this.setState(new LotteryState());
     this.clock.start()
 
-    connectWeb3().then(()=>{
-        startRefundProcessor(this)
-        startNFTQueueProcessor(this)
-        setupNFTListeners(this)
+    // connectWeb3().then(()=>{
+    //     startRefundProcessor(this)
+    //     startNFTQueueProcessor(this)
+    //     setupNFTListeners(this)
 
-        manaContract.on("Transfer", async (from:any, to:any, value:any) => {
-            transferReceived(from, to, value, this)
-        });
-    })
+    //     manaContract.on("Transfer", async (from:any, to:any, value:any) => {
+    //         transferReceived(from, to, value, this)
+    //     });
+    // })
 
     try{
       this.onMessage("get-lotteries", (client, message) => {
         console.log('getting lotteries')
         client.send('get-lotteries', getCache(LOTTERY_FILE_CACHE_KEY))
-    });
+      });
 
     this.onMessage("setup-lottery", (client, message) => {
         processNewLottery(client, message, this)
@@ -57,6 +69,14 @@ export class LotteryRoom extends Room<LotteryState> {
     this.onMessage("play-chance", (client, message) => {
         lotterySignUp(client, message, this)
     });
+
+    // this.onMessage("get-creator-chances", (client, message) => {
+    //   console.log('getting creator chances', client.userData.userId)
+    //   let lotteries = getCache(LOTTERY_FILE_CACHE_KEY)
+    //   let currentLotteries = lotteries.filter((lottery:any)=> lottery.owner === client.userData.userId)
+    //   // let historyLotteries 
+    //   client.send('get-creator-chances', [...currentLotteries])
+    // });
     }
     catch(e){
       console.log('error with on message', e)

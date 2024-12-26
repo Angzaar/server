@@ -1,11 +1,14 @@
 import { Room, Client } from "colyseus";
 import { Schema, type, ArraySchema, MapSchema } from "@colyseus/schema";
-import { handleArtGalleryReservation, handleMoveGalleryElevator, loadGalleryInfo } from "./ArtRoomHandlers";
-import { loadCache } from "../utils/cache";
+import { handleArtGalleryReservation, handleArtGalleryUpdate, handleGetMainGallery, handleGetShops, handleMainGalleryCancel, handleMainGalleryReserve, handleMoveGalleryElevator, loadGalleryInfo } from "./ArtRoomHandlers";
+import { getCache, loadCache, updateCache } from "../utils/cache";
 import { ART_GALLERY_FILE, ART_GALLERY_CACHE_KEY } from "../utils/initializer";
 import { validateAndCreateProfile } from "./MainRoomHandlers";
 import { addPlayfabEvent } from "../utils/Playfab";
 import { Player } from "./MainRoom";
+import { removeArtRoom } from ".";
+import { createNPCs, NPC, stopNPCPaths } from "../utils/npc";
+import { handleAdminToggleNPCObstacleScene, handleGetCustomItems } from "./AdminRoomHandlers";
 
 export class Vector3 extends Schema {
     @type("number") x: number
@@ -85,6 +88,9 @@ export class Gallery extends Schema {
 class ArtRoomState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
     @type([Gallery]) galleries = new ArraySchema<Gallery>();
+    @type({ map: NPC }) npcs = new MapSchema<NPC>();
+
+    npcInterval:any
 }
 
 export class ArtRoom extends Room<ArtRoomState> {
@@ -101,14 +107,30 @@ export class ArtRoom extends Room<ArtRoomState> {
     }
 
   onCreate(options:any) {
-    console.log("ArtRoom created!");
     this.setState(new ArtRoomState());
+    this.clock.start()
+    console.log("ArtRoom created!");
+
+    this.checkGalleryReservations();
+    this.clock.setInterval(() => {
+      this.checkGalleryReservations();
+    }, 1000);
 
     loadGalleryInfo(this)
 
     // Attach message handlers
     this.onMessage("reserve", (client, message) => handleArtGalleryReservation(this, client, message));
     this.onMessage("gallery-elevator", (client, message) => handleMoveGalleryElevator(this, client, message));
+    this.onMessage("get-art-gallery", (client, message) => handleGetMainGallery(client, 'get-art-gallery'));
+    this.onMessage("art-gallery-image-update", (client, message) => handleArtGalleryUpdate(client, message));
+    this.onMessage("cancel-art-gallery-reservation", (client, message) => handleMainGalleryCancel(this, client, message));
+    this.onMessage("art-gallery-reservation", (client, message) => handleMainGalleryReserve(this, client, message));
+    this.onMessage("get-shops", (client, message) => handleGetShops(client));
+    this.onMessage("store-reservation", (client, message) => handleMainGalleryReserve(this, client, message));
+    this.onMessage("get-custom-items", (client, message) => handleGetCustomItems(client));
+    this.onMessage("toggle-npc-obstacle", (client, message) => handleAdminToggleNPCObstacleScene(client, message));
+
+    createNPCs(this)
 }
 
   onJoin(client: Client, options:any) {
@@ -138,6 +160,7 @@ export class ArtRoom extends Room<ArtRoomState> {
     console.log(`${client.sessionId} left the ArtRoom.`);
     let player = this.state.players.get(client.userData.userId)
     this.state.players.delete(client.userData.userId)
+
     addPlayfabEvent({
       EventName: 'Player_Leave',
       Body:{
@@ -151,5 +174,48 @@ export class ArtRoom extends Room<ArtRoomState> {
 
   onDispose() {
     console.log("ArtRoom disposed!");
+    stopNPCPaths(this)
+    removeArtRoom(this)
+  }
+
+  checkGalleryReservations() {
+    const now = Math.floor(Date.now() / 1000);
+    let galleryInfo = getCache(ART_GALLERY_CACHE_KEY)
+    if(!galleryInfo){
+      console.log('no gallery info')
+      return
+    }
+
+    let mainGallery = galleryInfo.find((g:any) => g.id === "main")
+    if(!mainGallery){
+      console.log('no main gallery config')
+      return
+    }
+
+    let currentReservation = mainGallery.reservations.filter(
+      (reservation:any) => now >= reservation.startDate && now <= reservation.endDate
+    );
+
+    if(currentReservation.length > 0){
+      if(mainGallery.currentReservation !== currentReservation[0].id){
+        mainGallery.currentReservation = currentReservation[0].id
+        updateCache(ART_GALLERY_FILE, ART_GALLERY_CACHE_KEY, galleryInfo)
+
+        this.state.players.forEach((player:Player, id:string)=>{
+        try{
+          handleGetMainGallery(player.client, 'refresh-art-gallery')
+        }
+        catch(e){
+          console.log('error sending message to client', e)
+        }
+        })
+      }
+    }else{
+      if(mainGallery.currentReservation){
+        delete mainGallery.currentReservation
+        updateCache(ART_GALLERY_FILE, ART_GALLERY_CACHE_KEY, galleryInfo)
+        this.broadcast('clear-art-gallery')
+      }
+    }
   }
 }

@@ -23,6 +23,7 @@ export const LOTTERY_FILE = path.join(DATA_LOCATION, process.env.LOTTERY_FILE)
 export const NPCS_FILE = path.join(DATA_LOCATION, process.env.NPCS_FILE)
 export const ADMINS_FILE = path.join(DATA_LOCATION, process.env.ADMINS_FILE)
 export const CUSTOM_ITEMS_FILE = path.join(DATA_LOCATION, process.env.CUSTOM_ITEMS_FILE)
+export const TRANSACTIONS_FILE = path.join(DATA_LOCATION, process.env.TRANSACTIONS_FILE)
 
 export const PROFILES_CACHE_KEY = process.env.PROFILE_CACHE_KEY
 export const LOCATIONS_CACHE_KEY = process.env.LOCATIONS_CACHE_KEY
@@ -35,6 +36,7 @@ export const LOTTERY_FILE_CACHE_KEY = process.env.LOTTERY_FILE_CACHE_KEY
 export const NPCS_FILE_CACHE_KEY = process.env.NPCS_FILE_CACHE_KEY
 export const ADMINS_FILE_CACHE_KEY = process.env.ADMINS_FILE_CACHE_KEY
 export const CUSTOM_ITEMS_FILE_CACHE_KEY = process.env.CUSTOM_ITEMS_FILE_CACHE_KEY
+export const TRANSACTIONS_FILE_CACHE_KEY = process.env.TRANSACTIONS_FILE_CACHE_KEY
 
 export function initServer(){
     initPlayfab()
@@ -51,6 +53,7 @@ export function initServer(){
     loadCache(NPCS_FILE, NPCS_FILE_CACHE_KEY)
     loadCache(ADMINS_FILE, ADMINS_FILE_CACHE_KEY)
     loadCache(CUSTOM_ITEMS_FILE, CUSTOM_ITEMS_FILE_CACHE_KEY)
+    loadCache(TRANSACTIONS_FILE, TRANSACTIONS_FILE_CACHE_KEY)
 
     // Save cache to disk periodically
     setInterval(async () => {
@@ -65,6 +68,7 @@ export function initServer(){
         const npcs = getCache(NPCS_FILE_CACHE_KEY)
         const admins = getCache(ADMINS_FILE_CACHE_KEY)
         const customItems = getCache(CUSTOM_ITEMS_FILE_CACHE_KEY)
+        const transactions = getCache(TRANSACTIONS_FILE_CACHE_KEY)
 
         await cacheSyncToFile(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
         await cacheSyncToFile(LOCATIONS_FILE, LOCATIONS_CACHE_KEY, locations);
@@ -77,6 +81,7 @@ export function initServer(){
         await cacheSyncToFile(NPCS_FILE, NPCS_FILE_CACHE_KEY, npcs);
         await cacheSyncToFile(ADMINS_FILE, ADMINS_FILE_CACHE_KEY, admins);
         await cacheSyncToFile(CUSTOM_ITEMS_FILE, CUSTOM_ITEMS_FILE_CACHE_KEY, customItems);
+        await cacheSyncToFile(TRANSACTIONS_FILE, TRANSACTIONS_FILE_CACHE_KEY, transactions);
     }, Number(process.env.CACHE_REFRESH_INTERVAL_S) * 1000);
 
     //deployment interval check

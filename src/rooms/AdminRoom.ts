@@ -1,25 +1,11 @@
 import { Room, Client, ServerError } from "colyseus";
 import { Schema, type, ArraySchema, MapSchema } from "@colyseus/schema";
-import { handleCancelReservation, handleConferenceCancel, handleConferenceImageUpdate, handleConferenceReserve, handleConferenceVideoUpdate, handleGetMainGallery, handleGetConference, handleGetLocations, handleGetReservation, handleGetStreams, handleReserve, handleReserveStream, validateAndCreateProfile, handleArtGalleryUpdate, handleMainGalleryCancel, handleMainGalleryReserve, handleGetLocationReservations, handleGetDeployments, handleGetShops } from "./MainRoomHandlers";
-import { getCache, loadCache, updateCache } from "../utils/cache";
-import { Profile } from "../utils/types";
-import { ADMINS_FILE_CACHE_KEY, ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, NPCS_FILE_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
+import { getCache, } from "../utils/cache";
+import { ADMINS_FILE_CACHE_KEY } from "../utils/initializer";
 import { addPlayfabEvent } from "../utils/Playfab";
-import { handleAddCustomItem, handleAddModel, handleCustomItemUpdate, handleDeleteCustomItem, handleGetCustomItems, handleGetNPCs, handleNPCTabSelection, handleNPCUpdate } from "./AdminRoomHandlers";
+import { handleAddCustomItem, handleAddModel, handleCopyNPC, handleCustomItemCopy, handleCustomItemUpdate, handleDeleteCustomItem, handleGetCustomItems, handleGetNPCs, handleNPCTabSelection, handleNPCUpdate } from "./AdminRoomHandlers";
 import { mainRooms } from ".";
-
-export class Player extends Schema {
-  @type("string") userId:string;
-  @type("string") name:string 
-  client:Client
-  startTime:any
-
-  constructor(args:any, client:Client){
-    super(args)
-    this.client = client
-    this.startTime = Math.floor(Date.now()/1000)
-  }
-}
+import { Player } from "./MainRoom";
 
 class MainState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
@@ -33,6 +19,10 @@ export class AdminRoom extends Room<MainState> {
         if(!adminUser){
             console.log('user not admin, do not continue to admin login')
             throw new Error("Not Admin")
+        }
+
+        if(this.state.players.size > 0){
+          throw new Error("Admin already logged in")
         }
         client.auth = adminUser.level
         return true
@@ -51,9 +41,11 @@ export class AdminRoom extends Room<MainState> {
     this.onMessage("add-custom-item", (client:Client, message:any) => {handleAddCustomItem(client, message)})
     this.onMessage("custom-item-update", (client, message) => handleCustomItemUpdate(client, message));
     this.onMessage("custom-item-delete", (client, message) => handleDeleteCustomItem(client, message));
+    this.onMessage("custom-item-copy", (client, message) => handleCustomItemCopy(client, message));
     this.onMessage("get-npcs", (client, message) => handleGetNPCs(client));
     this.onMessage("npc-tab-selection", (client, message) => handleNPCTabSelection(client, message));
     this.onMessage("npc-update", (client, message) => handleNPCUpdate(client, message));
+    this.onMessage("npc-copy", (client, message) => handleCopyNPC(client, message));
   }
 
   onJoin(client: Client, options:any) {

@@ -2,7 +2,7 @@ import { ethers, uuidV4 } from "ethers";
 import { LotteryRoom, pendingIntents } from "../rooms/LotteryRoom";
 import * as dclTx from "decentraland-transactions";
 import { getCache, updateCache } from "./cache";
-import { LOTTERY_FILE, LOTTERY_FILE_CACHE_KEY } from "./initializer";
+import { LOTTERY_FILE, LOTTERY_FILE_CACHE_KEY, TRANSACTIONS_FILE_CACHE_KEY } from "./initializer";
 import { Client } from "colyseus";
 import { v4 } from "uuid";
 import { Player } from "../rooms/MainRoom";
@@ -174,15 +174,35 @@ export async function sendNFTToWinner(contractAddress:string, to: string, tokenI
         const body:
         | { ok: false; message: string; code: dclTx.ErrorCode }
         | { ok: true; txHash: string } = await response.json()
+        
+        let transactions = getCache(TRANSACTIONS_FILE_CACHE_KEY)
+        let newTransaction:any = {
+          id:v4(),
+          type:'ERC721',
+          from:LOTTERY_WALLET,
+          to:to,
+          contractAddress:contractAddress,
+          tokenId:tokenId
+        }
 
         if (body.ok === false) {
+          newTransaction.status = "ERROR"
         if (body.message && body.code) {
+            newTransaction.code = body.code
+            newTransaction.message = body.message
+            transactions.push(newTransaction)
             throw new dclTx.MetaTransactionError(body.message, body.code)
         }
 
+        newTransaction.code = 'HTTP ERROR'
+        newTransaction.mesaage = response.status
+        transactions.push(newTransaction)
         throw new Error(`HTTP Error. Status: ${response.status}.`)
         }
 
+        newTransaction.status = 'FINISHED'
+        newTransaction.tx = body.txHash
+        transactions.push(newTransaction)
         return body.txHash
     }
     catch(e:any){
@@ -220,7 +240,7 @@ export function startNFTQueueProcessor(room?:LotteryRoom) {
     }
 }
 
-export function cancelLottery(client:Client, message:any, room:LotteryRoom){
+export function cancelLottery(client:any, message:any, room:any, admin?:boolean){
   let lotteries = getCache(LOTTERY_FILE_CACHE_KEY)
 
   let lottery = lotteries.find((lot:any)=> lot.id === message.id)
@@ -230,15 +250,31 @@ export function cancelLottery(client:Client, message:any, room:LotteryRoom){
   }
 
   if(lottery.processing){
-    client.send('cancel-lottery', {valid:false, message:"Cannot cancel CHANCE, someone currently in process"})
+    console.log('lottery processing, cannot cancel')
+    if(!admin){
+      client.send('cancel-lottery', {valid:false, message:"Cannot cancel CHANCE, someone currently in process"})
+    }
   }else{
     let priorStatus = lottery.status
     lottery.status = "finished"
 
     if(priorStatus === "active"){
-      room.broadcast('lottery-finished', lottery.id)
+      console.log('canceling active lottery', lottery.id)
+      if(admin){
 
+      }else{
+        room.broadcast('lottery-finished', lottery.id)
+      }
+      
       lottery.items.forEach((item:any)=>{
+        let [contract, tokenId] = item.split(":")
+        enqueueNFTSend(contract, tokenId, lottery.owner)
+      })
+    }
+
+    if(priorStatus === "pending"){
+      console.log('canceling pending lottery', lottery.id)
+      lottery.itemsReceived.forEach((item:any)=>{
         let [contract, tokenId] = item.split(":")
         enqueueNFTSend(contract, tokenId, lottery.owner)
       })
@@ -338,6 +374,18 @@ function setupNFTListener(lotteries:any, lottery:any, room:LotteryRoom){
         console.log("nft transfer received", from, to, tokenId)
         if(to.toLowerCase() === LOTTERY_WALLET && from.toLowerCase() === lottery.owner && receivedTokenId.toString() === tokenId){
           console.log('Lottery wallet received nft for pending setup', from, receivedTokenId.toString())
+          let transactions = getCache(TRANSACTIONS_FILE_CACHE_KEY)
+          let newTransaction:any = {
+            id:v4(),
+            type:"ERC721",
+            from:from,
+            to:LOTTERY_WALLET,
+            contractAddress:contract,
+            tokenId:tokenId,
+            status:"FINISHED"
+          }
+          transactions.push(newTransaction)
+
     
           ercListener.removeAllListeners()
           ercListeners.delete(item)
@@ -361,6 +409,17 @@ function setupNFTListener(lotteries:any, lottery:any, room:LotteryRoom){
 export async function transferReceived(from:string, to:string, value:any, room:LotteryRoom){
   if (to.toLowerCase() === LOTTERY_WALLET.toLowerCase()) {
       let manaSent = ethers.toNumber(value)
+      let transactions = getCache(TRANSACTIONS_FILE_CACHE_KEY)
+      let newTransaction:any = {
+        id:v4(),
+        type:"ERC20",
+        from:from,
+        to:LOTTERY_WALLET,
+        value:value,
+        status:'FINISHED'
+      }
+      transactions.push(newTransaction)
+
 
       const pending = pendingIntents[from.toLowerCase()];
       console.log('pending intent is', pending)

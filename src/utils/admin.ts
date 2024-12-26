@@ -1,10 +1,11 @@
 import path from "path"
 import { getCache, updateCache } from "./cache"
-import { LOCATIONS_CACHE_KEY, LOCATIONS_FILE, TEMP_LOCATION } from "./initializer"
+import { ADMINS_FILE_CACHE_KEY, LOCATIONS_CACHE_KEY, LOCATIONS_FILE, LOTTERY_FILE_CACHE_KEY, TEMP_LOCATION } from "./initializer"
 import { uuidV4 } from "ethers"
 import fs from "fs/promises";
 import archiver from "archiver";
 import { checkDCLDeploymentQueue, checkDeploymentReservations, deploymentQueue } from "./deployment";
+import { cancelLottery } from "./lottery";
 
 
 const { v4: uuidv4 } = require('uuid');
@@ -100,5 +101,42 @@ export async function prepareLocationReset(id:string){
     }
     catch(e){
         console.log('error handling admin location reset', e)
+    }
+}
+
+export function handlePlazaAdmin(req:any, res:any){
+    let admins = getCache(ADMINS_FILE_CACHE_KEY)
+    let adminIndex = admins.findIndex((admin:any)=> admin.userId === req.body.userId.toLowerCase())
+
+    switch(req.body.action){
+        case 'add':
+            if(adminIndex < 0){
+                admins.push({userId:req.body.userId.toLowerCase(), level:0})
+                res.status(200).send({valid:true, message:"admin added"});
+                return
+            }else{
+                console.log('user already admin')
+                res.status(200).send({valid:true, message:"user already admin"});
+                return
+            }
+
+        case 'delete':
+            if(adminIndex >=0){
+                admins.splice(adminIndex, 1)
+                res.status(200).send({valid:true, message:"admin deleted"});
+                return
+            }else{
+                res.status(200).send({valid:true, message:"admin doesnt exist"});
+                return
+            }
+    }
+}
+
+export function handleAdminChance(req:any, res:any){
+    // let lotteries = getCache(LOTTERY_FILE_CACHE_KEY)
+    switch(req.body.action){
+        case 'cancel':
+            cancelLottery(null, {id:req.body.id}, null, true)
+            break;
     }
 }

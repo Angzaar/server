@@ -1,9 +1,9 @@
 import { Schema, type, ArraySchema, MapSchema } from "@colyseus/schema";
-import { MainRoom } from "../rooms/MainRoom";
+import { ArtRoom } from "../rooms/ArtRoom";
 import { getCache, updateCache } from "./cache";
 import { NPCS_FILE_CACHE_KEY } from "./initializer";
 import { Client, Room } from "colyseus";
-import { mainRooms } from "../rooms";
+import { artGalleryRooms } from "../rooms";
 
 const pathfinding = require('pathfinding');
 
@@ -36,13 +36,13 @@ export class NPC extends Schema {
   path:any
   speed:number 
   entity:any
-  room:MainRoom
+  room:ArtRoom
 
   updateInterval:any
   dclInterval:any
   config:any
 
-  constructor(args:any, room:MainRoom){
+  constructor(args:any, room:ArtRoom){
     super(args)
     this.room = room
     this.config = args
@@ -163,7 +163,7 @@ export class NPC extends Schema {
   }
 }
 
-export function stopWalkingNPC(room:MainRoom, id:string){
+export function stopWalkingNPC(room:ArtRoom, id:string){
   console.log('stop walking npc', id)
   let npc = room.state.npcs.get(id)
   if(!npc){
@@ -173,7 +173,7 @@ export function stopWalkingNPC(room:MainRoom, id:string){
   room.broadcast('npc-stop-walking', {id, pos:npc.config.t.p})
 }
 
-export function startWalkingNPC(room:MainRoom, id:string){
+export function startWalkingNPC(room:ArtRoom, id:string){
   console.log('start walking npc', id)
   let npc = room.state.npcs.get(id)
   if(!npc){
@@ -182,10 +182,21 @@ export function startWalkingNPC(room:MainRoom, id:string){
   npc.startWalking()
 }
 
-export function stopNPCPaths(room:MainRoom){
+export function stopNPCPaths(room:ArtRoom){
   room.state.npcs.forEach((npc:NPC)=>{
     npc.stopWalking()
   })
+}
+
+
+export function deleteNPC(room:ArtRoom, id:string){
+    let npc = room.state.npcs.get(id)
+    if(!npc){
+      return
+    }
+
+    npc.stopWalking()
+    room.state.npcs.delete(id)
 }
 
 export function updateNPC(client:Client, message:any){
@@ -197,9 +208,19 @@ export function updateNPC(client:Client, message:any){
   }
   
   switch(message.action){
+    case 'delete':
+      let npcIndex = npcData.npcs.findIndex((n:any)=> n.id === message.id)
+      if(npcIndex >=0){
+        npcData.npcs.splice(npcIndex,1)
+        artGalleryRooms.forEach((room:ArtRoom)=>{    
+          deleteNPC(room, message.id)
+      })
+      }
+      break;
+
     case 'display-name':
       npc.dn = message.value
-      mainRooms.forEach((room:MainRoom)=>{    
+      artGalleryRooms.forEach((room:ArtRoom)=>{    
         room.broadcast('npc-update', message)
     })
       break;
@@ -210,7 +231,7 @@ export function updateNPC(client:Client, message:any){
 
     case 'walking':
         npc.p.e = message.value
-        mainRooms.forEach((room:MainRoom)=>{    
+        artGalleryRooms.forEach((room:ArtRoom)=>{    
             if(message.value){
                 startWalkingNPC(room, npc.id)
             }else{
@@ -221,7 +242,7 @@ export function updateNPC(client:Client, message:any){
 
     case 'status':
         npc.en = message.value
-        mainRooms.forEach((room:MainRoom)=>{
+        artGalleryRooms.forEach((room:ArtRoom)=>{
             if(message.value){
                 enableNPC(room, npc)
             }else{
@@ -233,7 +254,7 @@ export function updateNPC(client:Client, message:any){
     case 'transform':
         npc.t[message.field][message.axis] += (message.direction * message.modifier)
 
-        mainRooms.forEach((room:MainRoom)=>{
+        artGalleryRooms.forEach((room:ArtRoom)=>{
             let roomNPC = room.state.npcs.get(npc.id)
             if(!roomNPC){
                 return
@@ -256,11 +277,11 @@ export function updateNPC(client:Client, message:any){
   }
 }
 
-export function enableNPC(room:MainRoom, config:any){
+export function enableNPC(room:ArtRoom, config:any){
   addNPC(room, config)
 }
 
-export function disableNPC(room:MainRoom, config:any){
+export function disableNPC(room:ArtRoom, config:any){
   let npc = room.state.npcs.get(config.id)
   if(!npc){
     return
@@ -269,7 +290,7 @@ export function disableNPC(room:MainRoom, config:any){
   room.state.npcs.delete(config.id)
 } 
 
-export async function createNPCs(room:MainRoom){
+export async function createNPCs(room:ArtRoom){
     await createGrid()
     // await addNPCs(room)
 
@@ -280,7 +301,7 @@ export async function createNPCs(room:MainRoom){
 
 }
 
-export function addNPC(room:MainRoom, config:any){
+export function addNPC(room:ArtRoom, config:any){
   console.log('adding npc', config.n)
   let newConfig = {...config}
   if(!config.w.r){
@@ -291,7 +312,7 @@ export function addNPC(room:MainRoom, config:any){
   room.state.npcs.set(config.id, newNPC)
 }
 
-function addNPCs(room:MainRoom, npcs:any[]){
+function addNPCs(room:ArtRoom, npcs:any[]){
   if(npcs.length > 0){
     let nextNPC = npcs.shift()
     addNPC(room, nextNPC)

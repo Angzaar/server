@@ -257,7 +257,10 @@ export function checkDeploymentReservations(){
             }else{
                 if(location.currentReservation){
                     console.log('there is a reservation, need to deploy blank land')
+
+                    location.reservations = location.reservations.filter((reservation:any)=> reservation.startDate > now)
                     delete location.currentReservation
+                    
                     updateCache(LOCATIONS_FILE, LOCATIONS_CACHE_KEY, locations)
                     prepareLocationReset(location.id)
                 }

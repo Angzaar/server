@@ -1,7 +1,7 @@
 {
-    "name": "reservation-upload-deploy",
+    "name": "angaar-plaza-server",
     "version": "1.0.0",
-    "description": "A DApp backend for handling reservations, file uploads, and deployment.",
+    "description": "A back end server for managing the Angzaar Plaza in Decentraland",
     "main": "build/index.ts",
     "engines": {
         "node": ">= 16.13.0"

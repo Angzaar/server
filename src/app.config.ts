@@ -3,9 +3,6 @@ import {monitor} from "@colyseus/monitor";
 import { playground } from "@colyseus/playground";
 import { WebSocketTransport } from "@colyseus/ws-transport"
 import { MainRoom } from "./rooms/MainRoom";
-import express from "express";
-import bodyParser from "body-parser";
-import path from 'path';
 import cors from 'cors'
 import { initServer } from "./utils/initializer";
 import { ArtRoom } from "./rooms/ArtRoom";
@@ -18,10 +15,13 @@ export default config({
         initServer()
         gameServer.define('angzaar_plaza_conference', MainRoom);
         gameServer.define('angzaar_plaza_colosseum', MainRoom);
-        gameServer.define('angzaar_plaza_gallery', MainRoom);
         gameServer.define('angzaar_plaza_reservations', MainRoom);
         gameServer.define('angzaar_plaza_dapp', MainRoom);
+
+        gameServer.define('angzaar_plaza_gallery', ArtRoom);
+
         gameServer.define('angzaar_plaza_admin', AdminRoom);
+        
         gameServer.define('angzaar_plaza_lottery', LotteryRoom);
     },
 
