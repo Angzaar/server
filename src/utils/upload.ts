@@ -4,6 +4,7 @@ import { checkDCLDeploymentQueue, deploymentQueue } from "../utils/deployment";
 import { messageDeployType, messageDomain } from "../utils/types";
 import path from "path";
 import { TEMP_LOCATION } from "./initializer";
+import { deployZip } from "./zip-deployment";
 
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
@@ -105,7 +106,56 @@ export const processUpload = async(req:any, res:any) =>{
       }
 }
 
-const removeTempFile = (path:string)=>{
+export const processGenesisUpload = async(req:any, res:any) =>{
+  try {
+    const body = {...req.body}
+    const { signature, hash, userId, locationId, reservationId } = body;
+
+    // console.log('authentication body', body)
+
+    // Validate input
+    if (!signature || !hash || !userId) {
+      console.log('missing some information', body)
+      removeTempFile(path.join(TEMP_LOCATION, req.fileId + ".zip"))
+      return res.status(400).json({ error: "Missing signature, deployHash, or ethAddress." });
+    }
+
+    const recoveredAddress = ethers.verifyMessage(hash, signature)
+
+    // Verify the recovered address matches the provided ethAddress
+    if (recoveredAddress.toLowerCase() !== userId.toLowerCase()) {
+        removeTempFile(path.join(TEMP_LOCATION, req.fileId + ".zip"))
+      return res.status(401).json({ error: "Invalid signature." });
+    }
+
+    // Signature is valid; proceed to the next middleware
+    const file = req.file;
+
+    if (!file) {
+      console.log('no file uploaded')
+      removeTempFile(path.join(TEMP_LOCATION, req.fileId + ".zip"))
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Respond to the client
+    res.status(200).json({
+      message: "File uploaded successfully",
+      fileId: req.fileId,
+      storedPath: file.path,
+      success:true,
+    });
+
+    deployZip(userId,req.fileId)
+
+
+  } catch (error) {
+    console.error("Authentication error:", error);
+    res.status(500).json({ error: "Internal server error during authentication." });
+    removeTempFile(path.join(TEMP_LOCATION, req.fileId + ".zip"))
+  }
+}
+
+export const removeTempFile = (path:string)=>{
     fs.unlink(path, (unlinkError) => {
         if (unlinkError) {
           console.error("Failed to delete file:", unlinkError);

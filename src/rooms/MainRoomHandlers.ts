@@ -8,22 +8,20 @@ import path from "path";
 import { profileExists } from "../utils/profiles";
 import { conferenceImageConfigs, conferenceVideoConfig } from "../utils/conference";
 import { setNPCGrid } from "../utils/npc";
+import { start } from "repl";
 const { v4: uuidv4 } = require('uuid');
 
 const SLOT_DURATION = 2 * 60 * 60; // 2 hours in seconds
 
 export const validateAndCreateProfile = async (
   client:Client,
-    options:{
-      userId: string,
-      name: string,
-    },
+    options:any,
     req: any
   ): Promise<any> => {
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.address().address;
     const {userId, name } = options
 
-    console.log('ip is', ipAddress)
+    // console.log('ip is', ipAddress)
 
     // console.log('validating options', options)
 
@@ -39,45 +37,133 @@ export const validateAndCreateProfile = async (
     // Get profiles from cache with proper typing
     const profiles:Profile[] = getCache(PROFILES_CACHE_KEY);
 
-    if(profileExists({userId, ipAddress})){
-      console.log('we found the profile already exists, do nothing')
-    }else{
-      console.log("checking for duplicate information before creating new profile")
+    let profile:any = profiles.find((profile) => profile.ethAddress === userId)// profileExists({userId, ipAddress})
+    if(profile){
+      console.log('we found the profile already exists')
+      console.log("checking for duplicate information")
       // Check for duplicate userId or ipAddress
-      const alreadyUserId = profiles.find((profile) => profile.ethAddress === userId)
-      if(alreadyUserId && alreadyUserId.ipAddress === ipAddress){
-        console.log('theres already a user with that wallet, check ip')
-        throw new Error("User ID or IP address is already in use.");
-      }
+      // const alreadyUserId = profiles.find((profile) => profile.ethAddress === userId)
+      // if(alreadyUserId && alreadyUserId.ipAddress !== ipAddress){
+      //   console.log('theres already a user with that wallet, check ip')
+      //   throw new Error("User ID or IP address is already in use.");
+      // }
 
      // Check for duplicate userId or ipAddress
-     const alreadyIPAddress = profiles.find((profile) => profile.ipAddress === ipAddress)
-     if(alreadyIPAddress && alreadyIPAddress.ethAddress === userId){
-       console.log('theres already a user with that wallet, check ip')
-       throw new Error("User ID or IP address is already in use.");
-     }
+    //  const alreadyIPAddress = profiles.filter((profile) => profile.ethAddress === userId)
+    //  if(alreadyIPAddress.length > 3){
+    //    console.log('that user has used too many ip')
+    //    throw new Error("Too Many IP");
+    //  }
 
-    // Create new profile if no duplicate is found
-    if(!profiles.find((profile:Profile) => profile.ethAddress === userId && profile.ipAddress === ipAddress)){
-      profiles.push({
+     console.log('profile is good to log in, see if they have dust created, if not create it with 0')
+     if(!profile.hasOwnProperty('dust')){
+      profile.dust = 0
+     }
+     if(!profile.hasOwnProperty("questsProgress")){
+      profile.questsProgress = []
+     }
+    }else{
+      // Create new profile if no duplicate is found
+      profile = {
         ethAddress: userId,
         ipAddress,
         name: name,
         createdDate: new Date(),
         deployments: 0,
-      })
+        dust:0,
+        goals:0,
+        wins:0,
+        losses:0,
+        distance:0,
+        blitzPlays:0,
+        arcadePlays:0,
+        web3:false
+      }
+      profiles.push(profile)
       console.log('created new profile!')
-    }
-
-  
       // Update cache and sync to file
-      await updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
+      // await updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
     }
 
     client.userData = options
     client.userData.ip = ipAddress
-    client.auth = {}
+
+    if(!options.realm){
+      throw new Error("Invalid realm info")
+    }
+
+    if(process.env.ENV === "Development" || (options.iwb && options.realm === "worlds-server")){
+      client.userData.web3 = true
+      profile.web3 =true
+      profile.name = client.userData.name
+    }else{
+      // console.log(`profile url is ${options.realm}/lambdas/profiles/${options.userId}`)
+
+      try{
+        let data:any = await fetch(`${options.realm}/lambdas/profiles/${options.userId}`)
+        let profileData = await data.json()
+        // console.log('profile data is', profileData)
+        if(profileData.error){
+          console.log('remote profile error', profileData)
+          throw new Error("Invalid remote profile")
+        }
+        client.userData.name = profileData.avatars[0].name
+        client.userData.web3 = profileData.avatars[0].hasConnectedWeb3
+        profile.web3 = profileData.avatars[0].hasConnectedWeb3
+        profile.name = profileData.avatars[0].name
+  
+        let comms:any = await fetch(`${options.realm}/comms/peers`)
+        let commsData = await comms.json()
+        if(commsData.ok){
+          if(!commsData.peers.find((data:any)=> data.address === client.userData.userId.toLowerCase())){
+            throw new Error("User not found on realm server")
+          }
+        }else{
+          throw new Error("Error fetching realm peer status")
+        }
+      }
+      catch(e:any){
+        console.log('error fetching remote profile, trying different realm provider', e)
+
+        try{
+          let data:any = await fetch(`https://realm-provider.decentraland.org/lambdas/profiles/${options.userId}`)
+          let profileData = await data.json()
+          // console.log('profile data is', profileData)
+          if(profileData.error){
+            console.log('remote profile error', profileData)
+            throw new Error("Invalid remote profile")
+          }
+          client.userData.name = profileData.avatars[0].name
+          client.userData.web3 = profileData.avatars[0].hasConnectedWeb3
+          profile.web3 = profileData.avatars[0].hasConnectedWeb3
+          profile.name = profileData.avatars[0].name
+    
+          let comms:any = await fetch(`${options.realm}/comms/peers`)
+          let commsData = await comms.json()
+          if(commsData.ok){
+            if(!commsData.peers.find((data:any)=> data.address === client.userData.userId.toLowerCase())){
+              throw new Error("User not found on realm server")
+            }
+          }else{
+            throw new Error("Error fetching realm peer status")
+          }
+        }
+        catch(e:any){
+          console.log('error fetching remote profile', e)
+          return false
+        }
+      }
+      
+    }
+    
+    client.auth = {} 
+    client.auth.profile = {...profile}
+    // console.log('we have full auth')
   };
+
+  async function getProfileData(){
+
+  }
 
   export const isBanned = (user:string) => {
     return false
@@ -250,9 +336,11 @@ export const handleReserveStream = async (room:MainRoom, client: Client, message
 // };
 
 export const handleGetLocations = (client: Client) => {
+  console.log('handling get locations', client.userData)
   try {
     // Validate input
     if (!client.userData || !client.userData.userId) {
+      console.log('invalid message parameters', client.userData)
       client.send("error", { message: "Invalid message parameters" });
       return;
     }
@@ -305,7 +393,7 @@ export const handleGetLocationReservations = (client: Client, message: {location
     let locations = getCache(LOCATIONS_CACHE_KEY)
     let location = locations.find((loc:any)=> loc.id === locationId)
     if(!location){
-      console.log('no location to get reservations')
+      console.log('no location to get reservations', locationId)
       return
     }
 
@@ -505,6 +593,7 @@ export const handleGetConference = (client: Client, message:string) => {
 };
 
 export const handleConferenceImageUpdate = (client: Client, message:any) => {
+  console.log('handling conference image update', message)
   try {
     // Validate input
     if (!client.userData || !client.userData.userId) {
@@ -592,6 +681,8 @@ export const handleConferenceReserve = async (room:MainRoom, client: Client, mes
   const conferenceInfo = getCache(CONFERENCE_FILE_CACHE_KEY);
   const { day, hours } = message;
 
+  console.log('conference center reserve request', day, hours)
+
   try {
     // Validate input
     if (!client.userData || !client.userData.userId || !day || !hours) {
@@ -612,10 +703,13 @@ export const handleConferenceReserve = async (room:MainRoom, client: Client, mes
       return { start, end }
     })
 
+    console.log('requested timestamps', requestedTimestamps)
+
     if(conferenceInfo.reservations.length > 0){
       // Validate no conflicts
       const hasConflict = conferenceInfo.reservations.some((reservation:any) => {
         return requestedTimestamps.some(({ start, end }) => {
+          console.log(reservation.startDate, reservation.endDate)
           // Check if the requested range overlaps with any existing reservation
           return !(end <= reservation.endDate || start >= reservation.endDate)
         })

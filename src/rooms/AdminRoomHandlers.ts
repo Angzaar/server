@@ -3,9 +3,8 @@ import { cacheSyncToFile, getCache, loadCache, updateCache } from "../utils/cach
 import { Profile } from "../utils/types";
 import { ADMINS_FILE_CACHE_KEY, ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CUSTOM_ITEMS_FILE_CACHE_KEY, LOCATIONS_CACHE_KEY, NPCS_FILE_CACHE_KEY, PROFILES_CACHE_KEY } from "../utils/initializer";
 import { v4 } from "uuid";
-import { artGalleryRooms } from ".";
 import { addNPC, disableNPC, enableNPC, setNPCGrid, startWalkingNPC, stopWalkingNPC, updateNPC } from "../utils/npc";
-import { MainRoom } from "./MainRoom";
+import { artGalleryRooms } from "./";
 import { ArtRoom } from "./ArtRoom";
 
 export async function validateAdmin(client:Client){
@@ -70,7 +69,7 @@ export const handleAddCustomItem = async (client: Client, info:any) => {
         customItems.Items.push(item)
         client.send('add-custom-item', item)
 
-        artGalleryRooms.forEach((room:Room)=>{
+        artGalleryRooms.forEach((room:ArtRoom)=>{
             room.broadcast('custom-item-add', item)
             })
 
@@ -250,7 +249,7 @@ export const handleGetCustomItems = async (client: Client) => {
 
     let customItems = getCache(CUSTOM_ITEMS_FILE_CACHE_KEY)
 
-    client.send('get-custom-items', customItems.Items)
+    client.send('get-custom-items', customItems)
   } catch (error) {
     console.error("Error handling reservation:", error);
     client.send("error", { message: "Internal server error. Please try again later." });

@@ -1,12 +1,12 @@
 import { Room, Client } from "colyseus";
 import { Schema, type, ArraySchema, MapSchema } from "@colyseus/schema";
-import { handleArtGalleryReservation, handleArtGalleryUpdate, handleGetMainGallery, handleGetShops, handleMainGalleryCancel, handleMainGalleryReserve, handleMoveGalleryElevator, loadGalleryInfo } from "./ArtRoomHandlers";
+import { handleArtGalleryReservation, handleArtGalleryUpdate, handleGetMainGallery, handleGetShops, handleMainGalleryCancel, handleMainGalleryReserve, handleMoveGalleryElevator, handleShopAudioUpdate, handleShopCancel, handleShopImageUpdate, handleShopMannequineUpdate, handleShopReserve, handleShopToggleElevator, handleShopWearableRemove, handleShopWearableUpdate, loadGalleryInfo } from "./ArtRoomHandlers";
 import { getCache, loadCache, updateCache } from "../utils/cache";
-import { ART_GALLERY_FILE, ART_GALLERY_CACHE_KEY } from "../utils/initializer";
+import { ART_GALLERY_FILE, ART_GALLERY_CACHE_KEY, SHOPS_FILE_CACHE_KEY, SHOPS_FILE } from "../utils/initializer";
 import { validateAndCreateProfile } from "./MainRoomHandlers";
 import { addPlayfabEvent } from "../utils/Playfab";
 import { Player } from "./MainRoom";
-import { removeArtRoom } from ".";
+import { addArtRoom, removeArtRoom } from ".";
 import { createNPCs, NPC, stopNPCPaths } from "../utils/npc";
 import { handleAdminToggleNPCObstacleScene, handleGetCustomItems } from "./AdminRoomHandlers";
 
@@ -110,23 +110,37 @@ export class ArtRoom extends Room<ArtRoomState> {
     this.setState(new ArtRoomState());
     this.clock.start()
     console.log("ArtRoom created!");
+    addArtRoom(this)
 
     this.checkGalleryReservations();
+    this.checkShopReservations()
     this.clock.setInterval(() => {
       this.checkGalleryReservations();
+      this.checkShopReservations()
     }, 1000);
 
     loadGalleryInfo(this)
 
     // Attach message handlers
-    this.onMessage("reserve", (client, message) => handleArtGalleryReservation(this, client, message));
+    // this.onMessage("reserve", (client, message) => handleArtGalleryReservation(this, client, message));
     this.onMessage("gallery-elevator", (client, message) => handleMoveGalleryElevator(this, client, message));
     this.onMessage("get-art-gallery", (client, message) => handleGetMainGallery(client, 'get-art-gallery'));
     this.onMessage("art-gallery-image-update", (client, message) => handleArtGalleryUpdate(client, message));
     this.onMessage("cancel-art-gallery-reservation", (client, message) => handleMainGalleryCancel(this, client, message));
     this.onMessage("art-gallery-reservation", (client, message) => handleMainGalleryReserve(this, client, message));
+
+    //shop handlers
     this.onMessage("get-shops", (client, message) => handleGetShops(client));
-    this.onMessage("store-reservation", (client, message) => handleMainGalleryReserve(this, client, message));
+    this.onMessage("shop-reservation", (client, message) => handleShopReserve(this, client, message));
+    this.onMessage("shop-image-update", (client, message) => handleShopImageUpdate(client, message));
+    this.onMessage("shop-audio-update", (client, message) => handleShopAudioUpdate(client, message));
+    this.onMessage("shop-mannequin-update", (client, message) => handleShopMannequineUpdate(client, message));
+    this.onMessage("shop-add-wearable", (client, message) => handleShopWearableUpdate(client, message));
+    this.onMessage("shop-remove-wearable", (client, message) => handleShopWearableRemove(client, message));
+    this.onMessage("shop-toggle-elevator", (client, message) => handleShopToggleElevator(client, message));
+    
+    this.onMessage("cancel-shop-reservation", (client, message) => handleShopCancel(this, client, message));
+
     this.onMessage("get-custom-items", (client, message) => handleGetCustomItems(client));
     this.onMessage("toggle-npc-obstacle", (client, message) => handleAdminToggleNPCObstacleScene(client, message));
 
@@ -192,6 +206,10 @@ export class ArtRoom extends Room<ArtRoomState> {
       return
     }
 
+    mainGallery.reservations = mainGallery.reservations.filter(
+      (reservation:any) => reservation.endDate >= now
+    );
+
     let currentReservation = mainGallery.reservations.filter(
       (reservation:any) => now >= reservation.startDate && now <= reservation.endDate
     );
@@ -217,5 +235,43 @@ export class ArtRoom extends Room<ArtRoomState> {
         this.broadcast('clear-art-gallery')
       }
     }
+  }
+
+  checkShopReservations() {
+    const now = Math.floor(Date.now() / 1000);
+    let shops = getCache(SHOPS_FILE_CACHE_KEY)
+    if(!shops){
+      console.log('no shops info')
+      return
+    }
+
+    shops.forEach((shop:any, index:number)=>{
+      shop.reservations = shop.reservations.filter(
+        (reservation:any) => reservation.endDate >= now
+      );
+      let currentReservation = shop.reservations.filter(
+        (reservation:any) => now >= reservation.startDate && now <= reservation.endDate
+      );
+      if(currentReservation.length > 0){
+        if(shop.currentReservation !== currentReservation[0].id){
+          shop.currentReservation = currentReservation[0].id
+          // updateCache(SHOPS_FILE, ART_GALLERY_CACHE_KEY, shops)
+          this.state.players.forEach((player:Player, id:string)=>{
+          try{
+            player.client.send('update-shop', {action:'refresh', shopId:shop.id, currentReservation:currentReservation[0]})
+          }
+          catch(e){
+            console.log('error sending message to client', e)
+          }
+          })
+        }
+      }else{
+        if(shop.currentReservation){
+          delete shop.currentReservation
+          // updateCache(ART_GALLERY_FILE, ART_GALLERY_CACHE_KEY, galleryInfo)
+          this.broadcast('update-shop', {action:'clear', shopId:shop.id})
+        }
+      }
+    })
   }
 }

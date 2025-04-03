@@ -30,7 +30,7 @@ export class StreamReserveration extends Schema {
 }
 
 class MainState extends Schema {
-  // @type(StreamReserveration) colosseumStream:StreamReserveration
+  @type(StreamReserveration) colosseumStream:StreamReserveration
   @type({ map: Player }) players = new MapSchema<Player>();
 }
 
@@ -47,34 +47,32 @@ export class MainRoom extends Room<MainState> {
 
   onCreate(options:any) {
     this.setState(new MainState());
-    // addRoom(this)
+    addRoom(this)
 
-    // // Set up a 1-second interval to check reservations
-    // this.checkConferenceReservations();
-    // this.clock.setInterval(() => {
-    //   this.checkConferenceReservations();
-    // }, 1000);
+    // Set up a 1-second interval to check reservations
+    this.checkConferenceReservations();
+    this.clock.setInterval(() => {
+      this.checkConferenceReservations();
+    }, 1000);
 
-    // let streams = getCache(STREAMS_FILE_CACHE_KEY)
-    // this.state.colosseumStream = new StreamReserveration(streams.find((stream:any)=>stream.id === 0))
+    let streams = getCache(STREAMS_FILE_CACHE_KEY)
+    this.state.colosseumStream = new StreamReserveration(streams.find((stream:any)=>stream.id === 0))
 
-    // this.onMessage("reserve-stream", (client, message) => handleReserveStream(this, client, message));
-    // this.onMessage("get-streams", (client, message) => handleGetStreams(client));
-    // this.onMessage("reserve", (client, message) => handleReserve(this, client, message));
-    // this.onMessage("get-reservation", (client, message) => handleGetReservation(this, client, message));
-    // this.onMessage("cancel-reservation", (client, message) => handleCancelReservation(this, client, message));
-    // this.onMessage("get-locations", (client, message) => handleGetLocations(client));
-    // this.onMessage("get-location-reservations", (client, message) => handleGetLocationReservations(client, message));
-    // this.onMessage("get-deployments", (client, message) => handleGetDeployments(client, message));
+    this.onMessage("reserve-stream", (client, message) => handleReserveStream(this, client, message));
+    this.onMessage("get-streams", (client, message) => handleGetStreams(client));
+    this.onMessage("reserve", (client, message) => handleReserve(this, client, message));
+    this.onMessage("get-reservation", (client, message) => handleGetReservation(this, client, message));
+    this.onMessage("cancel-reservation", (client, message) => handleCancelReservation(this, client, message));
+    this.onMessage("get-locations", (client, message) => handleGetLocations(client));
+    this.onMessage("get-location-reservations", (client, message) => handleGetLocationReservations(client, message));
+    this.onMessage("get-deployments", (client, message) => handleGetDeployments(client, message));
     
-    // this.onMessage("get-conference", (client, message) => handleGetConference(client, 'set-conference'));
-    // this.onMessage("conference_image_update", (client, message) => handleConferenceImageUpdate(client, message));
-    // this.onMessage("conference_video_update", (client, message) => handleConferenceVideoUpdate(client, message));
-    // this.onMessage("reserve-conference", (client, message) => handleConferenceReserve(this, client, message));
-    // this.onMessage("cancel-conference-reservation", (client, message) => handleConferenceCancel(this, client, message));
-
-
-
+    this.onMessage("get-conference", (client, message) => handleGetConference(client, 'set-conference'));
+    this.onMessage("conference_image_update", (client, message) => handleConferenceImageUpdate(client, message));
+    this.onMessage("conference_video_update", (client, message) => handleConferenceVideoUpdate(client, message));
+    this.onMessage("reserve-conference", (client, message) => handleConferenceReserve(this, client, message));
+    this.onMessage("cancel-conference-reservation", (client, message) => handleConferenceCancel(this, client, message));
+    
   }
 
   onJoin(client: Client, options:any) {
@@ -130,6 +128,10 @@ export class MainRoom extends Room<MainState> {
     if(!conferenceInfo){
       return
     }
+
+    conferenceInfo.reservations = conferenceInfo.reservations.filter(
+      (reservation:any) => reservation.endDate >= now
+    );
 
     let currentReservation = conferenceInfo.reservations.filter(
       (reservation:any) => now >= reservation.startDate && now <= reservation.endDate

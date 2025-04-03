@@ -17,6 +17,11 @@ export interface Reservation {
     name: string;       // User's name
     createdDate: Date;  // When the profile was created
     deployments: number; // Number of deployments made by the user
+    dust:number; //angzaar currency
+    goals:number //blitz goals
+    distance:number, // blitz distance
+    wins:number, //blitz wins
+    losses:number //blitz losses
   }
   
 
@@ -33,3 +38,9 @@ export const messageDeployType = {
     { name: "deployHash", type: "string" },
   ],
 };
+
+export enum Blockchain {
+  ETHEREUM = "ethereum",
+  POLYGON = "matic",
+  SOLANA = "solana"
+}

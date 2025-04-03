@@ -1,4 +1,4 @@
-import { handleAdminChance, handleAdminLocationReset, handlePlazaAdmin } from "../utils/admin";
+import { handleAdminChance, handleAdminDeployments, handlePlazaAdmin, handleServerAdmin } from "../utils/admin";
 import { getCache, updateCache } from "../utils/cache";
 import { ADMINS_FILE_CACHE_KEY, PROFILES_FILE } from "../utils/initializer";
 
@@ -17,24 +17,21 @@ export function adminRouter(router:any){
             case 'chance':
                 handleAdminChance(req, res)
                 break;
+
+            case 'deployments':
+                handleAdminDeployments(req,res)
+                return
+                break;
+
+            case 'server':
+                handleServerAdmin(req.body.action, res)
+                break
                 
             default:
             return res.status(200).send({valid:true, message:"unavailable route"});
         }
-        res.status(200).send({valid:true});
     });
-
-    router.get('/admin/deployments/:location/:action/:auth', authentication, (req:any, res:any) => {
-        console.log('admin router - ', req.params.location, req.params.action, req.params.auth)
-
-        switch(req.params.action){
-            case 'reset':
-                handleAdminLocationReset(req.params.location)
-                break;
-        }
-        res.status(200).send({valid:true});
-    });
-
+    
     router.get('/admin/:data/:auth', authentication, (req:any, res:any) => {
         console.log('admin data router - ', req.params.data, req.params.auth)
         res.status(200).send({valid:true, [req.params.data]: getCache(req.params.data)});

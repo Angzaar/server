@@ -4,8 +4,9 @@ import { getCache, } from "../utils/cache";
 import { ADMINS_FILE_CACHE_KEY } from "../utils/initializer";
 import { addPlayfabEvent } from "../utils/Playfab";
 import { handleAddCustomItem, handleAddModel, handleCopyNPC, handleCustomItemCopy, handleCustomItemUpdate, handleDeleteCustomItem, handleGetCustomItems, handleGetNPCs, handleNPCTabSelection, handleNPCUpdate } from "./AdminRoomHandlers";
-import { mainRooms } from ".";
 import { Player } from "./MainRoom";
+import { artGalleryRooms } from "./";
+import { ArtRoom } from "./ArtRoom";
 
 class MainState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
@@ -87,7 +88,7 @@ export class AdminRoom extends Room<MainState> {
 
   onDispose() {
     console.log("Admin Room disposed!");
-    mainRooms.forEach((room:Room)=>{
+    artGalleryRooms.forEach((room:ArtRoom)=>{
         room.state.players.forEach((player:Player)=>{
             player.client.send('npc-toggle-selection', {selection:'npcs'})
         })

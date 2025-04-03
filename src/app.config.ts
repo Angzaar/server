@@ -9,6 +9,11 @@ import { ArtRoom } from "./rooms/ArtRoom";
 import { router } from "./router";
 import { LotteryRoom } from "./rooms/LotteryRoom";
 import { AdminRoom } from "./rooms/AdminRoom";
+import { ReservationRoom } from "./rooms/ReservationRoom";
+import { BlitzRoom } from "./rooms/BlitzRoom";
+import { TronRoom } from "./components/arcade/TronState";
+import { FlightRoom } from "./rooms/FlightRoom";
+import { QuestRoom } from "./rooms/QuestRoom";
 
 export default config({
     initializeGameServer: (gameServer) => {
@@ -17,12 +22,14 @@ export default config({
         gameServer.define('angzaar_plaza_colosseum', MainRoom);
         gameServer.define('angzaar_plaza_reservations', MainRoom);
         gameServer.define('angzaar_plaza_dapp', MainRoom);
-
         gameServer.define('angzaar_plaza_gallery', ArtRoom);
-
         gameServer.define('angzaar_plaza_admin', AdminRoom);
-        
         gameServer.define('angzaar_plaza_lottery', LotteryRoom);
+        gameServer.define('angzaar_blitz', BlitzRoom);
+        gameServer.define('angzaar_cycles', TronRoom)
+        gameServer.define('angzaar_flight', FlightRoom)
+        gameServer.define('angzaar_questing', QuestRoom)
+        .filterBy(["questId", "userId"])
     },
 
     initializeTransport: function(opts) {

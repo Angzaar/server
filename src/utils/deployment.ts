@@ -93,9 +93,10 @@ export async function processDeployment(deployment:Deployment){
         console.log(`Unzipped to deploy directory`);
 
         //Delete the zip file
-        await fs.remove(path.join(TEMP_LOCATION, deployment.file));
+        // await fs.remove(path.join(TEMP_LOCATION, deployment.file));
         console.log(`Deleted temp zip ${TEMP_LOCATION}`);
 
+        console.log('verifying scene...')
         deploymentStatus.status = "Verifying Scene..."
         deployments = getCache(DEPLOYMENT_QUEUE_CACHE_KEY);
         currentDeployment = deployments.find((d:Deployment)=> d.id === deployment.id)
@@ -114,11 +115,12 @@ export async function processDeployment(deployment:Deployment){
         let currentBasePosition = findRowColInGrid(currentParcelsSorted, metadata.scene.base)
 
         metadata.scene.parcels = []
-        metadata.scene.base = location.parcels[0]
-
+        
         location.parcels.forEach((parcel:any)=>{
             metadata.scene.parcels.push(parcel)
         })
+
+        metadata.scene.base =  metadata.scene.parcels[0]
 
         if(deployment.reservationId === "admin" && deployment.userId === process.env.DEPLOY_ADDRESS){}
         else{
@@ -126,8 +128,11 @@ export async function processDeployment(deployment:Deployment){
             let flattenedGrid = flattenGrid(sortedLocation)
 
             metadata.scene.parcels = flattenedGrid
-            metadata.scene.base = getBaseCoordinateInNewGrid(sortedLocation, currentBasePosition[0], currentBasePosition[1]);
+            metadata.scene.base =  metadata.scene.parcels[0]
+            // metadata.scene.base = getBaseCoordinateInNewGrid(sortedLocation, currentBasePosition[0], currentBasePosition[1]);
         }
+
+        console.log('sceen is', metadata.scene)
 
         await fs.promises.writeFile(DEPLOY_LOCATION + "/scene.json", JSON.stringify(metadata,null, 2));
 
@@ -189,7 +194,7 @@ export async function processDeployment(deployment:Deployment){
 
 export async function resetDeployment(deploymentId:string, reason?:string){
     try{
-        await fs.emptyDir(DEPLOY_LOCATION)
+        // await fs.emptyDir(DEPLOY_LOCATION)
         console.log('finished emptying deploy directory')
         deploymentStatus.enabled = true
         deploymentStatus.status = "free"
@@ -262,7 +267,7 @@ export function checkDeploymentReservations(){
                     delete location.currentReservation
                     
                     updateCache(LOCATIONS_FILE, LOCATIONS_CACHE_KEY, locations)
-                    prepareLocationReset(location.id)
+                    prepareLocationReset(location.id, "pool")
                 }
             }
         })
@@ -272,7 +277,7 @@ export function checkDeploymentReservations(){
     }
 }
 
-const unzip = async (zipPath:string, destPath:string) => {
+export const unzip = async (zipPath:string, destPath:string) => {
     return new Promise((resolve, reject) => {
       fs.createReadStream(zipPath)
         .pipe(unzipper.Extract({ path: destPath }))

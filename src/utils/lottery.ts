@@ -6,6 +6,8 @@ import { LOTTERY_FILE, LOTTERY_FILE_CACHE_KEY, TRANSACTIONS_FILE_CACHE_KEY } fro
 import { Client } from "colyseus";
 import { v4 } from "uuid";
 import { Player } from "../rooms/MainRoom";
+import axios from "axios";
+import { getRandomIntInclusive } from "./admin";
 
 export const MANA_ADDRESS = process.env.MANA_ADDRESS;
 export const PRIVATE_KEY = process.env.LOTTERY_PRIVATE_KEY;
@@ -256,17 +258,13 @@ export function cancelLottery(client:any, message:any, room:any, admin?:boolean)
     }
   }else{
     let priorStatus = lottery.status
-    lottery.status = "finished"
 
     if(priorStatus === "active"){
       console.log('canceling active lottery', lottery.id)
-      if(admin){
-
-      }else{
-        room.broadcast('lottery-finished', lottery.id)
-      }
+      
       
       lottery.items.forEach((item:any)=>{
+        console.log('cancel lottery item is', item)
         let [contract, tokenId] = item.split(":")
         enqueueNFTSend(contract, tokenId, lottery.owner)
       })
@@ -274,16 +272,28 @@ export function cancelLottery(client:any, message:any, room:any, admin?:boolean)
 
     if(priorStatus === "pending"){
       console.log('canceling pending lottery', lottery.id)
+      lottery.items.forEach((item:any)=>{
+        console.log('cancel lottery item is', item)
+        let listener = ercListeners.get(item)
+        removeNFTListener(listener, item)
+      })
+
       lottery.itemsReceived.forEach((item:any)=>{
         let [contract, tokenId] = item.split(":")
         enqueueNFTSend(contract, tokenId, lottery.owner)
       })
     }
+
+    lottery.status = "finished"
+    if(admin){}
+    else{
+      room.broadcast('lottery-finished', lottery.id)
+    }
   }
 
 }
 
-export function processNewLottery(client:Client, lotteryData:any, room:LotteryRoom, ){
+export function processNewLottery(client:Client, lotteryData:any, room:LotteryRoom, isAdmin?:boolean){
   console.log('creating new lottery', lotteryData)
   //validate lottery data
 
@@ -297,48 +307,79 @@ export function processNewLottery(client:Client, lotteryData:any, room:LotteryRo
   // }
 
   let id = v4()
-  lotteries.push({
+  let newLottery:any = {
     id: id,
     items:lotteryData.items,
     name: lotteryData.name,
-    "owner": lotteryData.owner,
-    "chanceToWin": lotteryData.chanceToWin,
-    "costToPlay": lotteryData.costToPlay,
-    "status": "pending",
-    "queue": [],
-    "processing": false,
-    itemsReceived:[],
-    chances:0
-  })
-  room.broadcast('new-lottery', lotteries.find((lottery:any)=> lottery.id === id))
+    owner: lotteryData.owner,
+    creator: lotteryData.creator ? lotteryData.creator : "Anon",
+    chanceToWin: lotteryData.chanceToWin,
+    costToPlay: lotteryData.costToPlay > 0 && lotteryData.costToPlay < 1 ? 0 : lotteryData.costToPlay,
+    status: isAdmin ? "active": "pending",
+    queue: [],
+    processing: false,
+    cooldown:lotteryData.cooldown,
+    cooldownType:lotteryData.cooldownType,
+    type:isAdmin ? lotteryData.lotteryType : lotteryData.type,
+    randomAmount:1,
+    itemsReceived: isAdmin ? lotteryData.itemsReceived : [],
+    itemsWon:[],
+    chances:[]
+  }
+  lotteries.push(newLottery)
+  if(isAdmin){}
+  else{
+    client.send('new-lottery', newLottery)
+    setupNFTListener(lotteries, lotteries.find((lottery:any)=> lottery.id === id), room)
+  }
+
   updateCache(LOTTERY_FILE, LOTTERY_FILE_CACHE_KEY, lotteries)
-  setupNFTListener(lotteries, lotteries.find((lottery:any)=> lottery.id === id), room)
 }
 
-export function lotterySignUp(client:Client, lotteryData:any, room:LotteryRoom){
-  if(pendingIntents[client.userData.userId.toLowerCase()]){
-    console.log('player is already trying to play lotto', client.userData.userId)
-    return
+export function lotterySignUp(client:any, lotteryData:any, room:LotteryRoom, isAdmin?:boolean){
+  try{
+    if(!lotteryData){
+      throw new Error("lottery does not exist");
+    }
+
+    if(pendingIntents[client.userData.userId.toLowerCase()]){
+      console.log('player is already trying to play lotto', client.userData.userId)
+      return
+    }
+  
+    let lotteries = getCache(LOTTERY_FILE_CACHE_KEY)
+    // let lotteryId = lotteryData + ":" + 
+    let lottery = lotteries.find((lot:any)=> lot.id === lotteryData.id && lot.status === "active")
+    if(!lottery){
+      console.log('lottery does not exist')
+      client.send("lottery-no-exist", lotteryData)
+      return
+    }
+  
+    let playerChances:any[] = lottery.chances.filter((chance:any)=> chance.player === client.userData.userId.toLowerCase()).sort((a:any, b:any)=> b.playTime - a.playTime)
+    if(playerChances.length > 0){
+      let now = Math.floor(Date.now()/1000)
+      let lastPlay = playerChances[0]
+      if(now - lastPlay < lottery.cooldown){
+        console.log('player has a cooldown, dont let them play')
+        !isAdmin ? client.send("lottery-cooldown", {wait:now-lastPlay}) : null
+        return
+      }
+    }
+  
+    pendingIntents[client.userData.userId.toLowerCase()] = {
+      id:lotteryData.id,
+      amount: lottery.costToPlay
+    };
+  
+    !isAdmin ? client.send('play-chance', lottery.costToPlay) : null
+  
+    if(lottery.costToPlay === 0){
+      transferReceived(client.userData.userId, LOTTERY_WALLET, lottery.costToPlay.toString(), room, isAdmin)
+    }
   }
-
-  let lotteries = getCache(LOTTERY_FILE_CACHE_KEY)
-  // let lotteryId = lotteryData + ":" + 
-  let lottery = lotteries.find((lot:any)=> lot.id === lotteryData.id && lot.status === "active")
-  if(!lottery){
-    console.log('lottery does not exist')
-    client.send("lottery-no-exist", lotteryData)
-    return
-  }
-
-  pendingIntents[client.userData.userId.toLowerCase()] = {
-    id:lotteryData.id,
-    amount: lottery.costToPlay
-  };
-
-  client.send('play-chance', lottery.costToPlay)
-
-  if(lottery.costToPlay === 0){
-    transferReceived(client.userData.userId, LOTTERY_WALLET, lottery.costToPlay.toString(), room)
+  catch(e:any){
+    console.log('error signing up user for chance', e)
   }
 }
 
@@ -356,9 +397,19 @@ export function setupNFTListeners(room:LotteryRoom){
 
 export function removeNFTListeners(){
   ercListeners.forEach((listener:any, id:string)=>{
-    listener.removeAllListeners()
-      ercListeners.delete(id)
+    removeNFTListener(listener, id)
   })
+}
+
+function removeNFTListener(listener:any, id:string){
+  console.log('removing NFT listener for', id)
+  try{
+    listener.removeAllListeners()
+    ercListeners.delete(id)
+  }
+  catch(e:any){
+    console.log('error removing nft listener', e.message)
+  }
 }
 
 function setupNFTListener(lotteries:any, lottery:any, room:LotteryRoom){
@@ -371,7 +422,7 @@ function setupNFTListener(lotteries:any, lottery:any, room:LotteryRoom){
       updateCache(LOTTERY_FILE, LOTTERY_FILE_CACHE_KEY, lotteries)
   
       ercListener.on("Transfer", async (from:any, to:any, receivedTokenId:any) => {
-        console.log("nft transfer received", from, to, tokenId)
+        // console.log("nft transfer received", from, to, tokenId)
         if(to.toLowerCase() === LOTTERY_WALLET && from.toLowerCase() === lottery.owner && receivedTokenId.toString() === tokenId){
           console.log('Lottery wallet received nft for pending setup', from, receivedTokenId.toString())
           let transactions = getCache(TRANSACTIONS_FILE_CACHE_KEY)
@@ -395,8 +446,23 @@ function setupNFTListener(lotteries:any, lottery:any, room:LotteryRoom){
           if(lottery.itemsReceived.length === lottery.items.length){
             lottery.status = "active"
             room.broadcast('lottery-active', lottery.id)
+            buildDiscordMessage(0, lottery, lottery.owner)
           }
           updateCache(LOTTERY_FILE, LOTTERY_FILE_CACHE_KEY, lotteries)
+        }
+
+        if(from.toLowerCase() == LOTTERY_WALLET){
+          let transactions = getCache(TRANSACTIONS_FILE_CACHE_KEY)
+          let newTransaction:any = {
+            id:v4(),
+            type:"ERC721",
+            from:LOTTERY_WALLET,
+            to:to.toLowerCase(),
+            contractAddress:contract,
+            tokenId:tokenId,
+            status:"FINISHED"
+          }
+          transactions.push(newTransaction)
         }
       });
     }
@@ -406,7 +472,7 @@ function setupNFTListener(lotteries:any, lottery:any, room:LotteryRoom){
   })
 }
 
-export async function transferReceived(from:string, to:string, value:any, room:LotteryRoom){
+export async function transferReceived(from:string, to:string, value:any, room:LotteryRoom, isAdmin?:boolean){
   if (to.toLowerCase() === LOTTERY_WALLET.toLowerCase()) {
       let manaSent = ethers.toNumber(value)
       let transactions = getCache(TRANSACTIONS_FILE_CACHE_KEY)
@@ -435,7 +501,7 @@ export async function transferReceived(from:string, to:string, value:any, room:L
     
             if (!lottery.processing) {
               lottery.processing = true;
-              await processQueueForItem(lottery, from, value.toString(), room);
+              await processQueueForItem(lottery, room, isAdmin);
             }
         } else {
             console.warn(`Item ${pending.itemId} not active or not found.`, from, value.toString());
@@ -446,7 +512,7 @@ export async function transferReceived(from:string, to:string, value:any, room:L
   }
 }
 
-export async function processQueueForItem(lottery:any, user:string, amount:string, room:LotteryRoom) {
+export async function processQueueForItem(lottery:any, room?:LotteryRoom, isAdmin?:boolean) {
   if(lottery.queue.length === 0){
       return
   }
@@ -464,42 +530,106 @@ export async function processQueueForItem(lottery:any, user:string, amount:strin
     const wins = Math.random() < lottery.chanceToWin / 100;
     if (wins) {
       console.log(`${player} won the lottery!!` + lottery);
-      room.broadcast('lottery-finished', lottery.id)
-      
-      lottery.status = "finished"
 
-      lottery.items.forEach((item:any)=>{
-        let [contract, tokenId] = item.split(":")
-        enqueueNFTSend(contract, tokenId, player)
-      })
-      
-      // Refund everyone after the winner if amount to play is > 0
-      if(lottery.costToPlay > 0){
-        for (let j = i + 1; j < oldQueue.length; j++) {
-          console.log('j is', j)
-          const p = oldQueue[j];
-          console.log(`Refunding ${p.playerAddress} their MANA (never got processed)`);
-          enqueueRefund(p.playerAddress, p.amountSent)
-        } 
+      switch(lottery.type){
+        case 0: //all
+          lottery.itemsWon = [...lottery.items]
+          room && room.broadcast('lottery-finished', lottery.id)
+
+          lottery.status = "finished"
+          lottery.winner = player
+
+          if(!isAdmin){
+            lottery.itemsWon.forEach((item:any)=>{
+              let [contract, tokenId] = item.split(":")
+              enqueueNFTSend(contract, tokenId, player)
+            })
+          
+            // Refund everyone after the winner if amount to play is > 0
+            if(lottery.costToPlay > 0){
+              for (let j = i + 1; j < oldQueue.length; j++) {
+                console.log('j is', j)
+                const p = oldQueue[j];
+                console.log(`Refunding ${p.playerAddress} their MANA (never got processed)`);
+                enqueueRefund(p.playerAddress, p.amountSent)
+              } 
+            }
+          }
+          break;
+
+        case 1://random item
+          let wonItems:any[] = []
+          for(let i = 0; i < lottery.randomAmount; i++){
+            let randomItemIndex = getRandomIntInclusive(0, lottery.items.length - 1)
+            wonItems.push(lottery.items.splice(randomItemIndex, 1))
+          }
+
+          lottery.itemsWon = lottery.itemsWon.concat(wonItems.flat());
+
+          if(!isAdmin){
+            wonItems.forEach((item:any)=>{
+              let [contract, tokenId] = item.split(":")
+              enqueueNFTSend(contract, tokenId, player)
+            })
+          }
+
+          if(lottery.items.length === 0){
+            lottery.status = "finished"
+          }
+
+          lottery.winner = player
+
+          break;
+
       }
 
-      let winnerOnline:Player = room.state.players.get(player)
-      if(winnerOnline){
-        winnerOnline.client.send("lottery-won", {name:lottery.name})
+      if(room){
+        room.broadcast("lottery-won", {user:player, name:lottery.name})
+        // let winnerOnline:Player = room.state.players.get(player)
+        // if(winnerOnline){
+        //   winnerOnline.client.send("lottery-won", {name:lottery.name})
+        // }
       }
-      lottery.chances += 1
-      break; // Stop processing after winner
+      
+      lottery.chances.push({player:player, playTime:Math.floor(Date.now()/1000)})
+      !isAdmin ? buildDiscordMessage(1, lottery, player) : null
+
+    // Conditional break: only exit loop if lottery finished or type 0
+    if (lottery.type === 0 || lottery.status === "finished") {
+      break; 
+    }
+
     } else {
       console.log(`${player} lost, removed from queue with no refund.`);
-      lottery.chances += 1
+      lottery.chances.push({player:player, playTime:Math.floor(Date.now()/1000)})
 
-      let winnerOnline:Player = room.state.players.get(player)
-      if(winnerOnline){
-        winnerOnline.client.send("lottery-lost", {image:"", name:lottery.name})
+      if(room){
+        room.broadcast("lottery-lost", {user:player, name:lottery.name})
+        // let loserOnline:Player = room.state.players.get(player)
+        // if(loserOnline){
+        //   loserOnline.client.send("lottery-lost", {image:"", name:lottery.name})
+        // }
       }
+
+      !isAdmin ?  buildDiscordMessage(-1, lottery, player) : null
     }
   }
   lottery.processing = false
+
+
+  // For type 1 lotteries, check if we should re-invoke processing
+  if (
+    lottery.type === 1 &&
+    lottery.status !== "finished" &&
+    lottery.queue.length > 0
+  ) {
+    // Optionally schedule asynchronously to break the current call stack
+    setImmediate(async () => {
+      // Set processing true and re-invoke the function
+      lottery.processing = true;
+      await processQueueForItem(lottery, room, isAdmin);
+    });
+  }
 }
 
   function getDataToSign(
@@ -691,3 +821,102 @@ let rpcId = 0
   }
 
 ////0xA3FD0758DEE5F999bb52FFFD0325BF489F372156
+
+
+
+export async function buildDiscordMessage(type:number, lottery:any, user:string){
+  let color = 16711680
+
+  let avatarURL = ""
+  let avatarName = "Random"
+  try{
+      let profile = await axios.get("https://peer.decentral.io/lambdas/profiles/" + user)
+      if(profile.data.avatars){
+          avatarURL = profile.data.avatars[0].avatar.snapshots.face256;
+          avatarName = profile.data.avatars[0].name
+      }
+  }
+  catch(e:any){
+      console.log('couldnt get avatar url', e)
+  }
+
+  let message:any = {
+      "content": "",
+      "tts": false,
+      "embeds": [
+        {
+          "title": "DecentCHANCE! - PLAY NOW!",
+          // "description": `${avatarName} played a DecentCHANCE and lost!`,
+          "author": {
+            "name": `${avatarName} played ${lottery.name} and LOST!`,
+            "icon_url": avatarURL
+          },
+          "fields": [
+            {
+              "name": "Win %",
+              "value": `${lottery.chanceToWin}`,
+              "inline": true
+            },
+            {
+              "name": "Cost",
+              "value": `${lottery.costToPlay} MANA`,
+              "inline": true
+            },
+            {
+              "name": "Chances Played",
+              "value": `${lottery.chances.length}`,
+              "inline": true
+            },
+          ],
+          "color": color,
+          "url": "https://decentraland.org/play/?position=7%2C-76&DEBUG_SCENE_LOG=&realm=main&island=default1kdv"
+        }
+      ],
+      "components": [],
+      "actions": {}
+    }
+
+    switch(type){
+      case 0:
+        message.embeds[0].author.name = `${avatarName} created a new CHANCE - ${lottery.name}`
+        message.embeds[0].color = 16777215
+        break;
+
+      case 1:
+        message.embeds[0].author.name = `${avatarName} played ${lottery.name} and WON!`
+        message.embeds[0].color = 1376000
+        break;
+    }
+
+    for(let i = 0; i < lottery.items.length; i++){
+      let item = lottery.items[i]
+      let url = "https://marketplace-api.decentraland.org/v1/nfts?contractAddress="+item.split(":")[0] + "&tokenId=" + item.split(":")[1]
+      console.log('url is', url)
+          try{
+              let res = await fetch(url)
+              let json = await res.json()
+              if(json.data){
+                  let marketplaceItem = json.data[0].nft
+                  message.embeds[0].fields.push({
+                      name: "" + marketplaceItem.name,
+                      value: `${item.split(":")[3]} ${marketplaceItem.category}`
+                    }
+                  )
+              }
+          }
+          catch(e){
+              console.log('errorfetching pending chance item', e)
+          }
+    }
+
+    try{
+      await axios.post("http://localhost:2568/apis/discord/test", {
+          channels:["botUpdates", "lscUpdates"],
+          user: user,
+          msg:message
+      })
+    }
+    catch(e:any){
+      console.log('error pinging angzaar server', e.message)
+    }
+}

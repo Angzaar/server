@@ -12,12 +12,11 @@ const gridHeight = 112;
 const grid = new pathfinding.Grid(gridWidth, gridHeight);
 const AStarFinder = pathfinding.AStarFinder;
 
-const xOffset = 16
-const yOffset = 48
-
 export class NPC extends Schema {
   @type("string") id:string;
   @type("string") n:string
+  @type("string") hs:string
+  @type("string") b:string
   @type("number") x:number
   @type("number") y:number
   @type("number") z:number
@@ -28,9 +27,13 @@ export class NPC extends Schema {
   @type("number") sy:number
   @type("number") sz:number
   @type("boolean") isMoving:boolean = false
+  @type("boolean") dn:boolean
   @type("boolean") canWalk:boolean
   @type("boolean") c:boolean //custom model
   @type("boolean") randomWearables:boolean
+  @type(["number"]) sc:ArraySchema<number> = new ArraySchema()
+  @type(["number"]) hc:ArraySchema<number> = new ArraySchema()
+  @type(["number"]) ec:ArraySchema<number> = new ArraySchema()
   @type(["string"]) wearables:ArraySchema<string> = new ArraySchema()
 
   path:any
@@ -59,7 +62,23 @@ export class NPC extends Schema {
     this.sy = args.t.s[1]
     this.sz = args.t.s[2]
 
+    this.sc.push(args.sc.r)
+    this.sc.push(args.sc.g)
+    this.sc.push(args.sc.b)
+    this.sc.push(args.sc.a)
+
+    this.hc.push(args.hc.r)
+    this.hc.push(args.hc.g)
+    this.hc.push(args.hc.b)
+    this.hc.push(args.hc.a)
+
+    this.ec.push(args.ec.r)
+    this.ec.push(args.ec.g)
+    this.ec.push(args.ec.b)
+    this.ec.push(args.ec.a)
+
     if(args.wearables){
+      this.hs = args.hs
         args.wearables.forEach((wearable:string)=>{
             this.wearables.push(wearable)
         })
@@ -142,8 +161,8 @@ export class NPC extends Schema {
   }
 
   startWalking(){
-    this.x += xOffset
-    this.z += yOffset
+    this.x = 100
+    this.z = 35
     
     this.updateInterval = setInterval(()=>{
       this.canWalk = true
@@ -188,7 +207,6 @@ export function stopNPCPaths(room:ArtRoom){
   })
 }
 
-
 export function deleteNPC(room:ArtRoom, id:string){
     let npc = room.state.npcs.get(id)
     if(!npc){
@@ -222,7 +240,7 @@ export function updateNPC(client:Client, message:any){
       npc.dn = message.value
       artGalleryRooms.forEach((room:ArtRoom)=>{    
         room.broadcast('npc-update', message)
-    })
+      })
       break;
 
     case 'model':
@@ -274,6 +292,104 @@ export function updateNPC(client:Client, message:any){
             room.broadcast('npc-update', message)
         })
         break;
+
+    case 'add-wearable':
+      npc.w.i.push(message.item)
+      artGalleryRooms.forEach((room:ArtRoom)=>{    
+        let roomNPC = room.state.npcs.get(message.id)
+        if(roomNPC){
+          roomNPC.wearables.push(message.item)
+        }
+      })
+      break;
+
+    case 'remove-wearable':
+      npc.w.i.splice(message.index, 1)
+      artGalleryRooms.forEach((room:ArtRoom)=>{    
+        let roomNPC = room.state.npcs.get(message.id)
+        if(roomNPC){
+          roomNPC.wearables.splice(message.index, 1)
+        }      
+      })
+      break;
+
+      case 'skin-color':
+        npc.sc = message.color
+        artGalleryRooms.forEach((room:ArtRoom)=>{    
+          let roomNPC = room.state.npcs.get(message.id)
+          if(roomNPC){
+            roomNPC.sc = new ArraySchema(message.color.r, message.color.g, message.color.b, message.color.a)
+          }
+        })
+        break;
+
+      case 'hair-color':
+        npc.hc = message.color
+        artGalleryRooms.forEach((room:ArtRoom)=>{    
+          let roomNPC = room.state.npcs.get(message.id)
+          if(roomNPC){
+            roomNPC.hc = new ArraySchema(message.color.r, message.color.g, message.color.b, message.color.a)
+          }
+        })
+        break;
+
+
+        case 'eye-color':
+        npc.ec = message.color
+        artGalleryRooms.forEach((room:ArtRoom)=>{    
+          let roomNPC = room.state.npcs.get(message.id)
+          if(roomNPC){
+            roomNPC.ec = new ArraySchema(message.color.r, message.color.g, message.color.b, message.color.a)
+          }
+        })
+        break;
+
+       case 'hair':
+        npc.hs = message.value
+        artGalleryRooms.forEach((room:ArtRoom)=>{    
+          let roomNPC = room.state.npcs.get(message.id)
+          if(roomNPC){
+            roomNPC.hs = message.value
+          }
+        })
+        break;
+
+    case 'bodyshape':
+      npc.b = message.value
+      artGalleryRooms.forEach((room:ArtRoom)=>{    
+        let roomNPC = room.state.npcs.get(message.id)
+        if(roomNPC){
+          roomNPC.b = message.value
+        }
+      })
+      break;
+
+    case 'random-wearables':
+      npc.w.r = message.value
+      artGalleryRooms.forEach((room:ArtRoom)=>{    
+        room.broadcast('npc-update', message)
+      })
+      break;
+
+    case 'speed':
+      npc.speed = message.speed
+      artGalleryRooms.forEach((room:ArtRoom)=>{
+        let roomNPC = room.state.npcs.get(message.id)
+        if(roomNPC){
+          roomNPC.speed = message.speed
+        }
+    })
+      break;
+
+      case 'name':
+      npc.n = message.value
+      artGalleryRooms.forEach((room:ArtRoom)=>{
+        let roomNPC = room.state.npcs.get(message.id)
+        if(roomNPC){
+          roomNPC.n = message.value
+        }
+    })
+      break;
   }
 }
 

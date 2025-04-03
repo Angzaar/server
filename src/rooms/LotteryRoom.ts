@@ -3,7 +3,7 @@ import { Schema, type, ArraySchema, MapSchema } from "@colyseus/schema";
 import { validateAndCreateProfile } from "./MainRoomHandlers";
 import { getCache } from "../utils/cache";
 import {  LOTTERY_FILE_CACHE_KEY } from "../utils/initializer";
-import { startRefundProcessor, manaContract, connectWeb3, startNFTQueueProcessor, removeNFTListeners, processNewLottery, lotterySignUp, removePlayerFromLotterySignup, cancelLottery } from "../utils/lottery";
+import { startRefundProcessor, manaContract, connectWeb3, startNFTQueueProcessor, removeNFTListeners, processNewLottery, lotterySignUp, removePlayerFromLotterySignup, cancelLottery, setupNFTListeners, transferReceived } from "../utils/lottery";
 import { addPlayfabEvent } from "../utils/Playfab";
 
 export let pendingIntents:any = {};
@@ -42,17 +42,21 @@ export class LotteryRoom extends Room<LotteryState> {
     this.setState(new LotteryState());
     this.clock.start()
 
-    // connectWeb3().then(()=>{
-    //     startRefundProcessor(this)
-    //     startNFTQueueProcessor(this)
-    //     setupNFTListeners(this)
+    connectWeb3().then(()=>{
+        startRefundProcessor(this)
+        startNFTQueueProcessor(this)
+        setupNFTListeners(this)
 
-    //     manaContract.on("Transfer", async (from:any, to:any, value:any) => {
-    //         transferReceived(from, to, value, this)
-    //     });
-    // })
+        manaContract.on("Transfer", async (from:any, to:any, value:any) => {
+            transferReceived(from, to, value, this)
+        });
+    })
 
     try{
+      this.onMessage("lotto-beam", (client, message) => {
+        this.broadcast('lotto-beam', message)
+      });
+
       this.onMessage("get-lotteries", (client, message) => {
         console.log('getting lotteries')
         client.send('get-lotteries', getCache(LOTTERY_FILE_CACHE_KEY))
@@ -70,13 +74,13 @@ export class LotteryRoom extends Room<LotteryState> {
         lotterySignUp(client, message, this)
     });
 
-    // this.onMessage("get-creator-chances", (client, message) => {
-    //   console.log('getting creator chances', client.userData.userId)
-    //   let lotteries = getCache(LOTTERY_FILE_CACHE_KEY)
-    //   let currentLotteries = lotteries.filter((lottery:any)=> lottery.owner === client.userData.userId)
-    //   // let historyLotteries 
-    //   client.send('get-creator-chances', [...currentLotteries])
-    // });
+    this.onMessage("get-creator-chances", (client, message) => {
+      console.log('getting creator chances', client.userData.userId)
+      let lotteries = getCache(LOTTERY_FILE_CACHE_KEY)
+      let currentLotteries = lotteries.filter((lottery:any)=> lottery.owner === client.userData.userId)
+      // let historyLotteries 
+      client.send('get-creator-chances', [...currentLotteries])
+    });
     }
     catch(e){
       console.log('error with on message', e)
