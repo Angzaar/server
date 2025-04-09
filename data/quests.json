@@ -1,0 +1,595 @@
+[
+  {
+    "questId": "Xyq7Wk",
+    "version": 1,
+    "enabled": true,
+    "questType": "LINEAR",
+    "startTrigger": "FIRST_TASK",
+    "title": "Egg Hunt Testing Quest.",
+    "allowReplay": true,
+    "creator": "0x7bbea9c18cd0541acab8c19da2b11d0c03faef1c",
+    "steps": [
+      {
+        "name": "Collect Egg",
+        "stepId": "Ld4H70",
+        "tasks": [
+          {
+            "taskId": "26rku",
+            "description": "1Existence",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "1ul1i",
+            "description": "Jarod",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "kXDhh",
+            "description": "Lastraum",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "CBNbE",
+            "description": "KJ",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "cMCuX",
+            "description": "Tangpoko",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          },
+          {
+            "taskId": "qhzoa",
+            "description": "Toxic",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "kwuM3",
+            "description": "MGD",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "WXbGZ",
+            "description": "Old Guy",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "Ezhqt",
+            "description": "Roustan",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "pJYip",
+            "description": "Hayabusa",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "4jqFb",
+            "description": "Roustan",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          },
+          {
+            "taskId": "N9P2B",
+            "description": "Biometa",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          }
+        ],
+        "prerequisiteStepIds": []
+      }
+    ]
+  },
+  {
+    "questId": "WDepF5",
+    "version": 1,
+    "enabled": true,
+    "questType": "LINEAR",
+    "startTrigger": "FIRST_TASK",
+    "title": "tst eg",
+    "allowReplay": false,
+    "creator": "0x7bbea9c18cd0541acab8c19da2b11d0c03faef1c",
+    "steps": [
+      {
+        "name": "Tstsep 1",
+        "stepId": "yjZbn8",
+        "tasks": [
+          {
+            "taskId": "3otg8",
+            "description": "Tst Tsas1",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          }
+        ],
+        "prerequisiteStepIds": []
+      }
+    ]
+  },
+  {
+    "questId": "BhVrZ6",
+    "version": 1,
+    "enabled": true,
+    "questType": "LINEAR",
+    "startTrigger": "FIRST_TASK",
+    "title": "TestQuetLastraum",
+    "allowReplay": false,
+    "creator": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "steps": [
+      {
+        "name": "Only Step",
+        "stepId": "7QOOkw",
+        "tasks": [
+          {
+            "taskId": "SV0AE",
+            "description": "First Task",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          }
+        ],
+        "prerequisiteStepIds": []
+      }
+    ]
+  },
+  {
+    "questId": "xf3qbt",
+    "version": 1,
+    "enabled": true,
+    "questType": "LINEAR",
+    "startTrigger": "FIRST_TASK",
+    "title": "Test Quest 2",
+    "allowReplay": false,
+    "creator": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "steps": [
+      {
+        "name": "Step 1",
+        "stepId": "8d33sA",
+        "tasks": [
+          {
+            "taskId": "tyRoe",
+            "description": "Collect Coin",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          }
+        ],
+        "prerequisiteStepIds": []
+      }
+    ]
+  },
+  {
+    "questId": "jmZZbs",
+    "version": 1,
+    "enabled": true,
+    "questType": "LINEAR",
+    "startTrigger": "FIRST_TASK",
+    "title": "Test Quest 3",
+    "allowReplay": false,
+    "creator": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "steps": [
+      {
+        "name": "Step 1",
+        "stepId": "O8Sxbh",
+        "tasks": [
+          {
+            "taskId": "qLoFO",
+            "description": "Task 1",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          }
+        ],
+        "prerequisiteStepIds": []
+      },
+      {
+        "name": "asfsfsdfff",
+        "stepId": "CXC4ln",
+        "tasks": [
+          {
+            "taskId": "e2MO6",
+            "description": "teaksdsadfad",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          }
+        ],
+        "prerequisiteStepIds": []
+      }
+    ]
+  },
+  {
+    "questId": "KsyZNX",
+    "version": 1,
+    "enabled": false,
+    "questType": "LINEAR",
+    "startTrigger": "EXPLICIT",
+    "title": "Great DCLEaster Egg Hunt Extravaganza",
+    "allowReplay": false,
+    "creator": "0x7bbea9c18cd0541acab8c19da2b11d0c03faef1c",
+    "steps": [
+      {
+        "name": "Quest Action",
+        "stepId": "SksNfB",
+        "tasks": [
+          {
+            "taskId": "zJB7c",
+            "description": "Jarod Egg",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          },
+          {
+            "taskId": "Fjtip",
+            "description": "Sinful",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          },
+          {
+            "taskId": "ueNZH",
+            "description": "Sinful 2",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "Kr6Pm",
+            "description": "Billy T Coin",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "J99A3",
+            "description": "KJ",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          },
+          {
+            "taskId": "jVJyr",
+            "description": "Cheddar",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "iZLWI",
+            "description": "Roots",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "cN7mD",
+            "description": "Tangpoko",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "w098L",
+            "description": "Canessa 1",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "n8UJM",
+            "description": "Canessa 2",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "uW2EX",
+            "description": "Canessa 3",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "l0YD2",
+            "description": "Canessa 4",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "aIVFr",
+            "description": "Canessa 5",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "kSiiH",
+            "description": "Canessa 6",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "ySZS7",
+            "description": "Canessa 7",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "RdxsU",
+            "description": "Canessa 8",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "JSsF6",
+            "description": "Canessa 9",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "qSfwi",
+            "description": "Canessa 10",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "XLE46",
+            "description": "Canessa 11",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "rmoP4",
+            "description": "Canessa 12",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "nfz5z",
+            "description": "Canessa 13",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "TndmV",
+            "description": "Canessa 14",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "VtAgw",
+            "description": "Angzaar 1",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "4hl3O",
+            "description": "Angzaar 2",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "Koggl",
+            "description": "Angzaar 3",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "PRDnU",
+            "description": "Angzaar 4",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "9YMk9",
+            "description": "Angzaar 5",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          },
+          {
+            "taskId": "QjrGn",
+            "description": "Angzaar 6",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "7xiCv",
+            "description": "Angzaar 7",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "OLQI1",
+            "description": "Angzaar 8",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "HEPZb",
+            "description": "Angzaar 9",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "Tm8t7",
+            "description": "Angzaar 10",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "ajaVl",
+            "description": "BioMeta",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          },
+          {
+            "taskId": "0Swwg",
+            "description": "Old Guy Bbq",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "DTx4M",
+            "description": "Old Guy Bbq 2",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "gGIBf",
+            "description": "Old Guy Bbq 3",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "9yIkh",
+            "description": "Old Guy Bbq 4",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "MgzgM",
+            "description": "Old Guy Bbq 5",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "3wBsK",
+            "description": "Hayabusa",
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "requiredCount": 1
+          },
+          {
+            "taskId": "ZzFjw",
+            "description": "Biometa",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          },
+          {
+            "taskId": "cMPkN",
+            "description": "Mattimus",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          },
+          {
+            "taskId": "27M0k",
+            "description": "Mattimus",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          },
+          {
+            "taskId": "rdMG9",
+            "description": "Roustan",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          }
+        ],
+        "prerequisiteStepIds": []
+      }
+    ]
+  },
+  {
+    "questId": "Ln2eUU",
+    "version": 1,
+    "enabled": true,
+    "questType": "LINEAR",
+    "startTrigger": "FIRST_TASK",
+    "title": "H-Test",
+    "allowReplay": false,
+    "creator": "0x015529db9b026c7b577fb13a96bfee031b832a78",
+    "steps": [
+      {
+        "name": "Colect",
+        "stepId": "s5GlwT",
+        "tasks": [
+          {
+            "taskId": "zeYnh",
+            "description": "new task",
+            "requiredCount": 0,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          }
+        ],
+        "prerequisiteStepIds": []
+      }
+    ]
+  },
+  {
+    "questId": "FlKFGg",
+    "version": 1,
+    "enabled": true,
+    "questType": "LINEAR",
+    "startTrigger": "EXPLICIT",
+    "title": "Egg Hunt Test",
+    "allowReplay": false,
+    "creator": "0x4194e1fc8dfff9bb95e348eeef77f9aafca58c98",
+    "steps": [
+      {
+        "stepId": "19yLR7",
+        "name": "Collect Egg",
+        "prerequisiteStepIds": [],
+        "tasks": [
+          {
+            "taskId": "9vvv4",
+            "description": "Collect Egg",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": []
+          }
+        ]
+      }
+    ]
+  }
+]

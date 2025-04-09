@@ -24,6 +24,15 @@ export interface Reservation {
     losses:number //blitz losses
   }
   
+  export interface Verse {
+    name: string;
+    creator: string;
+    description: string;
+    location: string;
+    public: boolean;
+    createdAt: number;
+    updatedAt: number;
+  }
 
 // Define the domain and types for EIP-712
 export const messageDomain = {

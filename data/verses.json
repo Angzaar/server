@@ -1,0 +1,22 @@
+[
+  {
+    "id": "d012d3cb-9c08-4193-8c0e-3d4a3a17566c",
+    "name": "Decentraland",
+    "description": "This is the first verse",
+    "location": "https://www.decentraland.org/",
+    "public": true,
+    "creator": "0x0000000000000000000000000000000000000000",
+    "createdAt": 1717987200,
+    "updatedAt": 1717987200
+  },
+  {
+    "id": "f57c4a7c-0399-4f5f-a8b3-cd3a1126f0d6",
+    "name": "asdf",
+    "description": "fff",
+    "location": "",
+    "creator": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "public": false,
+    "createdAt": 1744226639,
+    "updatedAt": 1744226639
+  }
+]

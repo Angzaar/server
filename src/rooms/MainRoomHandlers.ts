@@ -1,7 +1,7 @@
 import { Client, Room } from "colyseus";
 import { getCache, updateCache } from "../utils/cache";
 import { Location, Profile } from "../utils/types";
-import { ADMINS_FILE_CACHE_KEY, ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, CUSTOM_ITEMS_FILE_CACHE_KEY, DEPLOYMENT_QUEUE_CACHE_KEY, LOCATIONS_CACHE_KEY, LOCATIONS_FILE, NPCS_FILE_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE, SHOPS_FILE, SHOPS_FILE_CACHE_KEY, STREAMS_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
+import { ADMINS_FILE_CACHE_KEY, ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CONFERENCE_FILE, CONFERENCE_FILE_CACHE_KEY, CUSTOM_ITEMS_FILE_CACHE_KEY, DEPLOYMENT_QUEUE_CACHE_KEY, LOCATIONS_CACHE_KEY, LOCATIONS_FILE, NPCS_FILE_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE, QUEST_TEMPLATES_CACHE_KEY, SHOPS_FILE, SHOPS_FILE_CACHE_KEY, STREAMS_FILE, STREAMS_FILE_CACHE_KEY } from "../utils/initializer";
 import { MainRoom } from "./MainRoom";
 import { addDaysToTimestamp, createFolder } from "../utils/folderUtils";
 import path from "path";
@@ -9,6 +9,8 @@ import { profileExists } from "../utils/profiles";
 import { conferenceImageConfigs, conferenceVideoConfig } from "../utils/conference";
 import { setNPCGrid } from "../utils/npc";
 import { start } from "repl";
+import { validateAuthentication } from '../utils/signatures';
+import { validateGoogleToken } from "../utils/auth";
 const { v4: uuidv4 } = require('uuid');
 
 const SLOT_DURATION = 2 * 60 * 60; // 2 hours in seconds
@@ -21,12 +23,28 @@ export const validateAndCreateProfile = async (
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.address().address;
     const {userId, name } = options
 
+    // For web-dapp clients, verify the signature
+    if (options.realm === "web-dapp") {
+      // Verify signature for web-dapp clients
+      if (!validateAuthentication(options)) {
+        console.log('Signature validation failed for user:', userId);
+        throw new Error("Invalid authentication signature");
+      }
+      console.log('Signature validated successfully for user:', userId);
+    }
+
+    // if(options.authType === "google"){
+    //   console.log('google auth type')
+    //   let googleProfile = await validateGoogleToken(options.token)
+    //   console.log('google profile', googleProfile)
+    // }
+
     // console.log('ip is', ipAddress)
 
     // console.log('validating options', options)
 
         // if(isBanned(userId)){
-        //   console.log('user is banned')
+        //   console.log('user is banned')t
         //   throw new Error("User Banned");
         // }
         
@@ -77,7 +95,8 @@ export const validateAndCreateProfile = async (
         distance:0,
         blitzPlays:0,
         arcadePlays:0,
-        web3:false
+        web3:false,
+        questsProgress:[]
       }
       profiles.push(profile)
       console.log('created new profile!')
@@ -88,17 +107,29 @@ export const validateAndCreateProfile = async (
     client.userData = options
     client.userData.ip = ipAddress
 
-    if(!options.realm){
+    if(!options.realm && !options.reservationDapp){
       throw new Error("Invalid realm info")
+    }
+
+    if(options.realm === 'local-testing' && options.questId !== "creator"){
+      let quests = getCache(QUEST_TEMPLATES_CACHE_KEY)
+      let quest = quests.find((quest:any)=> quest.questId === options.questId && quest.creator === options.userId)
+      if(!quest){
+        console.log('no quest found for creator local testing', options.userId, options.questId)
+        throw new Error("Invalid Quest Creator for local testing")
+      }
     }
 
     if(process.env.ENV === "Development" || (options.iwb && options.realm === "worlds-server")){
       client.userData.web3 = true
       profile.web3 =true
       profile.name = client.userData.name
+    }else if(options.realm === "web-dapp" && options.questId === "creator"){
+      console.log("using web dapp realm")
+      client.userData.web3 = true
+      profile.web3 =true
+      profile.name = client.userData.name
     }else{
-      // console.log(`profile url is ${options.realm}/lambdas/profiles/${options.userId}`)
-
       try{
         let data:any = await fetch(`${options.realm}/lambdas/profiles/${options.userId}`)
         let profileData = await data.json()

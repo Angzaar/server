@@ -1,201 +1,5 @@
 [
   {
-    "id": "bc277a12-5130-4933-a171-1ca782d23348",
-    "items": [
-      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257"
-    ],
-    "name": "Angzaar Lotus Wings",
-    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
-    "chanceToWin": 10,
-    "costToPlay": 0,
-    "status": "finished",
-    "queue": [],
-    "processing": true,
-    "itemsReceived": [],
-    "chances": 0
-  },
-  {
-    "id": "77a949ed-9ae3-4034-bdd2-bdd0fa23a705",
-    "items": [
-      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0:uncommon"
-    ],
-    "name": "Angzaar Lots Wings 2",
-    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
-    "chanceToWin": 10,
-    "costToPlay": 0,
-    "status": "finished",
-    "queue": [],
-    "processing": false,
-    "itemsReceived": [
-      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0"
-    ],
-    "chances": 1
-  },
-  {
-    "id": "3a904f15-dfe6-4249-911f-621bcd003579",
-    "items": [
-      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257"
-    ],
-    "name": "Angzaar Lotus Wings 3",
-    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
-    "chanceToWin": 10,
-    "costToPlay": 0,
-    "status": "finished",
-    "queue": [],
-    "processing": false,
-    "itemsReceived": [
-      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257"
-    ],
-    "chances": 1
-  },
-  {
-    "id": "37b85ddd-8cd5-4681-868a-20246552dc07",
-    "items": [
-      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0uncommon"
-    ],
-    "name": "Angzaar Lotus 4",
-    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
-    "chanceToWin": 10,
-    "costToPlay": 0,
-    "status": "finished",
-    "queue": [],
-    "processing": false,
-    "itemsReceived": [
-      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257"
-    ],
-    "chances": 3
-  },
-  {
-    "id": "78d9031f-024c-4d5f-94fd-30b53a9275ce",
-    "items": [
-      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0:uncommon"
-    ],
-    "name": "Lotus Wings 1",
-    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
-    "chanceToWin": 15,
-    "costToPlay": 0,
-    "status": "finished",
-    "queue": [],
-    "processing": false,
-    "itemsReceived": [
-      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257"
-    ],
-    "chances": 0
-  },
-  {
-    "id": "2e10aadb-55ac-4d37-8125-504ba1553fcb",
-    "items": [
-      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0:uncommon"
-    ],
-    "name": "Lotus 2",
-    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
-    "chanceToWin": 15,
-    "costToPlay": 0,
-    "status": "active",
-    "queue": [],
-    "processing": false,
-    "itemsReceived": [
-      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257"
-    ],
-    "chances": 6
-  },
-  {
-    "id": "d98fad16-2e83-45fe-9fe9-196ad009bb74",
-    "items": [
-      "0x5e546ad7233452a63da1e873d7edf9013ae7028d:16:0:epic"
-    ],
-    "name": "Where Pigs Fly Launcher",
-    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
-    "chanceToWin": 15,
-    "costToPlay": 0,
-    "status": "finished",
-    "queue": [],
-    "processing": false,
-    "itemsReceived": [
-      "0x5e546ad7233452a63da1e873d7edf9013ae7028d:16"
-    ],
-    "chances": 4
-  },
-  {
-    "id": "a1dcd32c-f670-425d-a2d0-7f9aa92919e2",
-    "items": [
-      "0x0de0ee088db1d9820bb44ec2736570b2ecef9002:244:0:rare"
-    ],
-    "name": "Bug Hunter Emote",
-    "owner": "0xceba6b4186aae99bc8c3c467601bd344b1d62764",
-    "chanceToWin": 33.34,
-    "costToPlay": 0,
-    "status": "finished",
-    "queue": [],
-    "processing": false,
-    "itemsReceived": [
-      "0x0de0ee088db1d9820bb44ec2736570b2ecef9002:244"
-    ],
-    "chances": 1
-  },
-  {
-    "id": "2fc89b5f-e7a8-4793-ac08-3aee969618bf",
-    "items": [
-      "0x9a9949bb49170fcec4891f4cfa7370281acb8cae:210624583337114373395836055367340864637790190801098222508621956521:2:common"
-    ],
-    "name": "Deus",
-    "owner": "0x54e93609eb454a1f152edefdf022480794ce2130",
-    "chanceToWin": 75,
-    "costToPlay": 0,
-    "status": "finished",
-    "queue": [],
-    "processing": false,
-    "itemsReceived": [
-      "0x9a9949bb49170fcec4891f4cfa7370281acb8cae:210624583337114373395836055367340864637790190801098222508621956521"
-    ],
-    "chances": 4
-  },
-  {
-    "id": "004df432-4c97-4d5b-9e8e-d361bf3be2e7",
-    "items": [
-      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:1263747500022686240375016332204045187826741144806589335051731730449:12:common"
-    ],
-    "name": "Puzzle Pants",
-    "owner": "0x54e93609eb454a1f152edefdf022480794ce2130",
-    "chanceToWin": 90,
-    "costToPlay": 0,
-    "status": "pending",
-    "queue": [],
-    "processing": false,
-    "itemsReceived": [],
-    "chances": 0
-  },
-  {
-    "id": "2fd7d684-c7d9-45e0-9320-9dc1f5a74c69",
-    "items": [
-      "0xc735a25327d7d5cb7b60d7fb997a4ee1ee1afbf3:561:0:uncommon"
-    ],
-    "name": "Whimsy Test",
-    "owner": "0x0808a7bb212331e4186e253ca8071bfe4ced8d36",
-    "chanceToWin": 50,
-    "costToPlay": 10,
-    "status": "finished",
-    "queue": [],
-    "processing": false,
-    "itemsReceived": [
-      "0xc735a25327d7d5cb7b60d7fb997a4ee1ee1afbf3:561"
-    ],
-    "chances": 0
-  },
-  {
-    "id": "63f1496e-4b8f-44c5-a4ab-e4d4c0b1e5a3",
-    "items": [],
-    "name": "GT Test 03",
-    "owner": "0xe1eedbd1e08478707c794e7e8b1ee623f5fa6d64",
-    "chanceToWin": 50,
-    "costToPlay": 10,
-    "status": "pending",
-    "queue": [],
-    "processing": false,
-    "itemsReceived": [],
-    "chances": 0
-  },
-  {
     "id": "e874661e-feea-4d7f-8de7-69a4fbaf5e2f",
     "items": [
       "0xdb7fde75194c2f7b95aeb16d5d72ef902e339def:210624583337114373395836055367340864637790190801098222508621955078:2:epic"
@@ -204,13 +8,15 @@
     "owner": "0x0808a7bb212331e4186e253ca8071bfe4ced8d36",
     "chanceToWin": 50,
     "costToPlay": 0,
+    "cooldown": 0,
+    "cooldownType": 0,
     "status": "finished",
     "queue": [],
     "processing": false,
     "itemsReceived": [
       "0xdb7fde75194c2f7b95aeb16d5d72ef902e339def:210624583337114373395836055367340864637790190801098222508621955078"
     ],
-    "chances": 0
+    "chances": []
   },
   {
     "id": "f8b67a93-2cfb-4796-86f8-1b35fe19397c",
@@ -221,13 +27,15 @@
     "owner": "0x0808a7bb212331e4186e253ca8071bfe4ced8d36",
     "chanceToWin": 50,
     "costToPlay": 1,
+    "cooldown": 0,
+    "cooldownType": 0,
     "status": "active",
     "queue": [],
     "processing": false,
     "itemsReceived": [
       "0xf9b4c34dd2f9b5b850d667c384833535237b32e1:577"
     ],
-    "chances": 0
+    "chances": []
   },
   {
     "id": "c74274d5-7353-4f7c-859b-cff07bbea103",
@@ -278,6 +86,8 @@
     "owner": "0x90136a3f7b78b3e947b934322421ea023e4922e9",
     "chanceToWin": 50,
     "costToPlay": 0,
+    "cooldown": 0,
+    "cooldownType": 0,
     "status": "pending",
     "queue": [],
     "processing": false,
@@ -291,72 +101,609 @@
       "0x083230402677cad61d7a0cc040dc8a08cfeb809e:1474372083359800613770852387571386052464531335607687557560353685534",
       "0x083230402677cad61d7a0cc040dc8a08cfeb809e:315936875005671560093754083051011296956685286201647333762932932644",
       "0x66c256e64eb5dcc6b33adac215692cf7905cf038:382"
+    ],
+    "chances": []
+  },
+  {
+    "id": "2e07c44b-f08a-45ea-9642-110a22c67c31",
+    "items": [
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:210624583337114373395836055367340864637790190801098222508621955281:2:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:105312291668557186697918027683670432318895095400549111254310977742:1:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:206:0:epic"
+    ],
+    "name": "The Final Slice",
+    "owner": "0xceba6b4186aae99bc8c3c467601bd344b1d62764",
+    "chanceToWin": 10,
+    "costToPlay": 20,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "status": "active",
+    "queue": [],
+    "processing": false,
+    "itemsReceived": [
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:210624583337114373395836055367340864637790190801098222508621955281",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:105312291668557186697918027683670432318895095400549111254310977742",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:206"
+    ],
+    "chances": []
+  },
+  {
+    "id": "235a4820-6dd4-47e0-b41f-a50ab7b47d50",
+    "items": [
+      "0x2d92c0d8641d9515319f6e477ba16a0cecac72b5:105312291668557186697918027683670432318895095400549111254310977925:1:epic"
+    ],
+    "name": "Marc Cain Heart Affair Blazer",
+    "owner": "0xdef54a61f77041631d5f268a2576290448912768",
+    "chanceToWin": 10,
+    "costToPlay": 0,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "status": "finished",
+    "queue": [],
+    "processing": false,
+    "itemsReceived": [
+      "0x2d92c0d8641d9515319f6e477ba16a0cecac72b5:105312291668557186697918027683670432318895095400549111254310977925"
+    ],
+    "chances": [
+      "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+      "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+      "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6",
+      "0x0749d1abb5ca9128432b612644c0ea1e9c6cc9af",
+      "0x0749d1abb5ca9128432b612644c0ea1e9c6cc9af",
+      "0x0749d1abb5ca9128432b612644c0ea1e9c6cc9af",
+      "0x0749d1abb5ca9128432b612644c0ea1e9c6cc9af",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130",
+      "0x54e93609eb454a1f152edefdf022480794ce2130"
+    ],
+    "winner": "0x54e93609eb454a1f152edefdf022480794ce2130"
+  },
+  {
+    "id": "d8858ebc-f641-4a03-b544-db30eeaea470",
+    "items": [
+      "0x7e03cb1eb02aacfd5fdec88ced4aefa1015c4f86:627:0:epic",
+      "0x7e03cb1eb02aacfd5fdec88ced4aefa1015c4f86:578:0:epic"
+    ],
+    "name": "Lucky Chicken 2000's",
+    "owner": "0xdef54a61f77041631d5f268a2576290448912768",
+    "chanceToWin": 1,
+    "costToPlay": 0,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "status": "finished",
+    "queue": [],
+    "processing": false,
+    "itemsReceived": [
+      "0x7e03cb1eb02aacfd5fdec88ced4aefa1015c4f86:578",
+      "0x7e03cb1eb02aacfd5fdec88ced4aefa1015c4f86:627"
+    ],
+    "chances": [
+      "0x0749d1abb5ca9128432b612644c0ea1e9c6cc9af",
+      "0x0749d1abb5ca9128432b612644c0ea1e9c6cc9af",
+      "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+      "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a"
+    ],
+    "winner": "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a"
+  },
+  {
+    "id": "e710d840-12be-43b5-a726-26a2543d4775",
+    "items": [
+      "0x654bfa3457eff2c57b3ea1502d07f7203544aa80:2400:0:common",
+      "0xafcddb1c5e7871d5e1886c475b23bb8ea0a79caf:25784:0:common",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:234:0:rare",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:208:0:rare",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:210:0:rare",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:187:0:rare",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:172:0:rare",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:192:0:rare",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:202:0:rare",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:201:0:rare",
+      "0xd2132c5f42e9b0e2fb494b98963dc9a4470c19d0:6448:0:uncommon",
+      "0xd2132c5f42e9b0e2fb494b98963dc9a4470c19d0:6439:0:uncommon",
+      "0x6d83706836e820e79252edd48da419d2d03592d4:5536:0:uncommon",
+      "0xb596913573d91428f1df7f934588eb65934a92c7:7:0:mythic",
+      "0xee6d52f3f05eb4540ab754d0f3fabbf97f8555fc:752:0:uncommon",
+      "0x3a22b4b7185ef4da982d8bc94f30f799654d8541:978:0:common",
+      "0x3a22b4b7185ef4da982d8bc94f30f799654d8541:977:0:common",
+      "0x3a22b4b7185ef4da982d8bc94f30f799654d8541:976:0:common",
+      "0x3a22b4b7185ef4da982d8bc94f30f799654d8541:975:0:common",
+      "0x3a22b4b7185ef4da982d8bc94f30f799654d8541:974:0:common",
+      "0xf1916725624c1f63616bdb484c4c040661a4b41a:184:0:common",
+      "0xf1916725624c1f63616bdb484c4c040661a4b41a:181:0:common",
+      "0xf1916725624c1f63616bdb484c4c040661a4b41a:186:0:common",
+      "0xf1916725624c1f63616bdb484c4c040661a4b41a:188:0:common",
+      "0xf1916725624c1f63616bdb484c4c040661a4b41a:191:0:common",
+      "0x073d4db5d136ee705225b1a42f3895feedf00340:160:0:uncommon",
+      "0x073d4db5d136ee705225b1a42f3895feedf00340:105312291668557186697918027683670432318895095400549111254310977930:1:uncommon",
+      "0xb4eec9f3194c0165315533ee02c5a811ae829bad:139:0:epic",
+      "0xb4eec9f3194c0165315533ee02c5a811ae829bad:136:0:epic",
+      "0xb4eec9f3194c0165315533ee02c5a811ae829bad:127:0:epic",
+      "0xca3f06d124850ea57db0d6fcc4295b2e03a2bbe3:1085:0:common",
+      "0xca3f06d124850ea57db0d6fcc4295b2e03a2bbe3:1038:0:common",
+      "0xca3f06d124850ea57db0d6fcc4295b2e03a2bbe3:973:0:common",
+      "0x4ac2c6ba71b43cfdaa6a503217ee7a5554688721:99:0:common",
+      "0x4ac2c6ba71b43cfdaa6a503217ee7a5554688721:97:0:common",
+      "0x4ac2c6ba71b43cfdaa6a503217ee7a5554688721:96:0:common",
+      "0x4ac2c6ba71b43cfdaa6a503217ee7a5554688721:95:0:common",
+      "0x4ac2c6ba71b43cfdaa6a503217ee7a5554688721:94:0:common",
+      "0x4ac2c6ba71b43cfdaa6a503217ee7a5554688721:113:0:common",
+      "0x4ac2c6ba71b43cfdaa6a503217ee7a5554688721:112:0:common",
+      "0xfe94affb8b4044ed02f80411a87dffc6a9b39918:126:0:common",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049294:2:common",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049290:2:common",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049284:2:common",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049271:2:common",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049276:2:common",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049281:2:common",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049253:2:common",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049247:2:common",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049101:2:common"
+    ],
+    "name": "DCL DAILY SPIN",
+    "owner": "0x0749d1abb5ca9128432b612644c0ea1e9c6cc9af",
+    "chanceToWin": 50,
+    "costToPlay": 0,
+    "status": "finished",
+    "queue": [],
+    "cooldown": 0,
+    "cooldownType": 0,
+    "processing": false,
+    "itemsReceived": [
+      "0x654bfa3457eff2c57b3ea1502d07f7203544aa80:2400",
+      "0xafcddb1c5e7871d5e1886c475b23bb8ea0a79caf:25784",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:234",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:208",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:210",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:187",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:172",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:192",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:202",
+      "0xf84e3e9881771b2fb54992e1ef5fa6a18735c61b:201",
+      "0xd2132c5f42e9b0e2fb494b98963dc9a4470c19d0:6448",
+      "0xd2132c5f42e9b0e2fb494b98963dc9a4470c19d0:6439",
+      "0x6d83706836e820e79252edd48da419d2d03592d4:5536",
+      "0xee6d52f3f05eb4540ab754d0f3fabbf97f8555fc:752",
+      "0x3a22b4b7185ef4da982d8bc94f30f799654d8541:978",
+      "0x3a22b4b7185ef4da982d8bc94f30f799654d8541:977",
+      "0x3a22b4b7185ef4da982d8bc94f30f799654d8541:976",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049101",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049247",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049253",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049281",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049276",
+      "0xfe94affb8b4044ed02f80411a87dffc6a9b39918:126",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049271",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049284",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049290",
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622049294",
+      "0x4ac2c6ba71b43cfdaa6a503217ee7a5554688721:112",
+      "0x4ac2c6ba71b43cfdaa6a503217ee7a5554688721:113"
     ],
     "chances": 0
   },
   {
-    "id": "c74274d5-7353-4f7c-859b-cff07bbea103",
+    "id": "a9f668b8-8eac-49ba-bffe-45d746df9861",
     "items": [
-      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:2527495000045372480750032664408090375653482289613178670103463460895:24:common",
-      "0xf87ec9cdb35f40dcdc2140e1171f0dc25ec18ff8:947810625017014680281262249153033890870055858604942001288798797826:9:common",
-      "0x4fde0297c458e7a0bc35f07c015f322ca31b459e:240:0:rare",
-      "0x3316c137bafc78d4567c8efe0edfa36aa141aa76:336:0:epic",
-      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:105312291668557186697918027683670432318895095400549111254310977567:1:common",
-      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:27:0:common",
-      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:1474372083359800613770852387571386052464531335607687557560353685534:14:common",
-      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:315936875005671560093754083051011296956685286201647333762932932644:3:common",
-      "0x66c256e64eb5dcc6b33adac215692cf7905cf038:382:0:common",
-      "0xe65650a3bce5e70fbca3c105395cfdda959a3eca:69:0:legendary",
-      "0xbd9022e17c90db0833a0a53bd2aa183d41f74181:210624583337114373395836055367340864637790190801098222508621955077:2:epic",
-      "0xbd9022e17c90db0833a0a53bd2aa183d41f74181:1053122916685571866979180276836704323188950954005491112543109775363:10:legendary",
-      "0xbd9022e17c90db0833a0a53bd2aa183d41f74181:5:0:epic",
-      "0xbd9022e17c90db0833a0a53bd2aa183d41f74181:105312291668557186697918027683670432318895095400549111254310977541:1:epic",
-      "0xa24414c07bbccaa8584c12047aa2806f767134d1:28:0:exotic",
-      "0x0fdb3f743d7301cce06b3b6d8e0bfe63360683b4:270:0:epic",
-      "0x0fdb3f743d7301cce06b3b6d8e0bfe63360683b4:105312291668557186697918027683670432318895095400549111254310977637:1:epic",
-      "0x4733fa96c3b655b419060b19d5d7e6c1da372785:101:0:epic",
-      "0x7b207598a9167e8d993251e990aea23c29203ca3:1964:0:uncommon",
-      "0xad87ce523753694000594c02ffd6fbd77ad9855e:16:0:legendary",
-      "0xbb2b71e685a53550907fb62524e7d5c72dd37747:63:0:epic",
-      "0xbb2b71e685a53550907fb62524e7d5c72dd37747:105312291668557186697918027683670432318895095400549111254310977596:1:epic",
-      "0x689ee79b1bc511f9f1cc24d9e102e17a775525dc:105312291668557186697918027683670432318895095400549111254310977546:1:epic",
-      "0x689ee79b1bc511f9f1cc24d9e102e17a775525dc:7:0:epic",
-      "0xda9aeb98beca545f50541ac31998fdbd9462ebba:2:0:exotic",
-      "0x642615cc0f4abd6487be1e03e6fd69adbf7f553f:14:0:exotic",
-      "0x7507e63eacbf1d334669bc924607a62a4d29c656:4:0:exotic",
-      "0x07b9c9c74a9e5ee67d6f8b18c9deca0c368da72e:36:0:exotic",
-      "0x092a6f546aea7ed41828310e666de2ab8382acff:6:0:exotic",
-      "0x51b916744fd31cb348a01d6df7f45720c0ce069e:13:0:exotic",
-      "0x0c918e866cec7adbb1eaca8211e655189fa3d4a8:25:0:exotic",
-      "0xafa72df3e29c001683d7646e36d0f041b1a53e30:576:0:common",
-      "0xc2c76142fdbc3edb9204ae96194d69e5ff70112e:30:0:legendary",
-      "0xe5336cefadaf3116f2dd4b3b523c4afcd3ad61c0:7:0:exotic",
-      "0xe629741a40b7f1d41e1a02f0e20c414b8bd300a0:31:0:exotic",
-      "0xe91f0faf04bcb2c1c25ac9459fb90228be8735e7:9:0:exotic",
-      "0x75e8860281572b0f401c8821140123874d37ccbf:4:0:exotic",
-      "0x8152feb2c4ef95059e2eca365a4fe5b3006ad9b9:10:0:exotic",
-      "0x8152feb2c4ef95059e2eca365a4fe5b3006ad9b9:105312291668557186697918027683670432318895095400549111254310977549:1:exotic",
-      "0x14436fc9cd3361cfe4d04dec8cdca40f9a3fe021:42:0:legendary",
-      "0x8827d0e4bde1e3de3ee3381738d3a99f555ed6ff:1474372083359800613770852387571386052464531335607687557560353685562:14:epic"
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622034140:2:common"
     ],
-    "name": "Giving Tree test 01",
-    "owner": "0xceba6b4186aae99bc8c3c467601bd344b1d62764",
-    "chanceToWin": 50,
+    "name": "Cookie Cutter Cap",
+    "owner": "0x54e93609eb454a1f152edefdf022480794ce2130",
+    "chanceToWin": 95,
+    "costToPlay": 0,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "status": "finished",
+    "queue": [],
+    "processing": false,
+    "itemsReceived": [
+      "0x66194b1abcbfbedd83841775404b245c8f9e4183:210624583337114373395836055367340864637790190801098222508622034140"
+    ],
+    "chances": [
+      "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6"
+    ],
+    "winner": "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6"
+  },
+  {
+    "id": "a55004f3-286a-4413-83d3-96820b3632dc",
+    "items": [
+      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:1263747500022686240375016332204045187826741144806589335051731730449:12:common"
+    ],
+    "name": "Slidding Pants",
+    "owner": "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6",
+    "chanceToWin": 100,
+    "costToPlay": 1,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "status": "finished",
+    "queue": [],
+    "processing": false,
+    "itemsReceived": [
+      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:1263747500022686240375016332204045187826741144806589335051731730449"
+    ],
+    "chances": []
+  },
+  {
+    "id": "f06dbd47-6ece-44bd-b91b-351527853e92",
+    "items": [
+      "0x2f6c60bb25663fbc7fcb6ab678c3180e48634561:1688:0:rare",
+      "0x2f6c60bb25663fbc7fcb6ab678c3180e48634561:1687:0:rare",
+      "0x2f6c60bb25663fbc7fcb6ab678c3180e48634561:1686:0:rare",
+      "0x2f6c60bb25663fbc7fcb6ab678c3180e48634561:1685:0:rare",
+      "0x2f6c60bb25663fbc7fcb6ab678c3180e48634561:1684:0:rare"
+    ],
+    "name": "EXODUS Wintersoul",
+    "owner": "0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a",
+    "chanceToWin": 20,
+    "costToPlay": 0,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "status": "active",
+    "queue": [],
+    "processing": false,
+    "itemsReceived": [
+      "0x2f6c60bb25663fbc7fcb6ab678c3180e48634561:1688",
+      "0x2f6c60bb25663fbc7fcb6ab678c3180e48634561:1687",
+      "0x2f6c60bb25663fbc7fcb6ab678c3180e48634561:1686",
+      "0x2f6c60bb25663fbc7fcb6ab678c3180e48634561:1685",
+      "0x2f6c60bb25663fbc7fcb6ab678c3180e48634561:1684"
+    ],
+    "chances": []
+  },
+  {
+    "id": "4c62c7f7-8ea4-47c8-8113-585bc930e08d",
+    "items": [
+      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0:uncommon",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:210624583337114373395836055367340864637790190801098222508621955281:2:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:206:0:epic",
+      "0xbd8ea4184317ed550672a5e74b113b50e0fbf370:169:0:epic",
+      "0x016a6995783e21ad92d88627fbe6e0d8bc658b1e:430:0:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:105312291668557186697918027683670432318895095400549111254310977742:1:epic",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:105312291668557186697918027683670432318895095400549111254310977552:1:legendary",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:16:0:legendary",
+      "0x4589b719d1638aa40f0aabc6557a49d82b6a53d2:6:0:legendary",
+      "0xd50191baed16bc532feb9d499fdaa805fe01d3ff:210624583337114373395836055367340864637790190801098222508621955089:2:common"
+    ],
+    "name": "test",
+    "owner": "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6",
+    "chanceToWin": 10,
     "costToPlay": 0,
     "status": "pending",
     "queue": [],
     "processing": false,
-    "itemsReceived": [
-      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:2527495000045372480750032664408090375653482289613178670103463460895",
-      "0xf87ec9cdb35f40dcdc2140e1171f0dc25ec18ff8:947810625017014680281262249153033890870055858604942001288798797826",
-      "0x4fde0297c458e7a0bc35f07c015f322ca31b459e:240",
-      "0x3316c137bafc78d4567c8efe0edfa36aa141aa76:336",
-      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:105312291668557186697918027683670432318895095400549111254310977567",
-      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:27",
-      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:1474372083359800613770852387571386052464531335607687557560353685534",
-      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:315936875005671560093754083051011296956685286201647333762932932644",
-      "0x66c256e64eb5dcc6b33adac215692cf7905cf038:382"
+    "cooldown": 0,
+    "cooldownType": 0,
+    "itemsReceived": [],
+    "chances": []
+  },
+  {
+    "id": "9a89c990-4154-4479-9f77-69a4a5433735",
+    "items": [
+      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0:uncommon",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:210624583337114373395836055367340864637790190801098222508621955281:2:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:206:0:epic",
+      "0xbd8ea4184317ed550672a5e74b113b50e0fbf370:169:0:epic",
+      "0x016a6995783e21ad92d88627fbe6e0d8bc658b1e:430:0:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:105312291668557186697918027683670432318895095400549111254310977742:1:epic",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:105312291668557186697918027683670432318895095400549111254310977552:1:legendary",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:16:0:legendary",
+      "0x4589b719d1638aa40f0aabc6557a49d82b6a53d2:6:0:legendary",
+      "0xd50191baed16bc532feb9d499fdaa805fe01d3ff:210624583337114373395836055367340864637790190801098222508621955089:2:common"
     ],
-    "chances": 0
+    "name": "asfasdff",
+    "owner": "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6",
+    "chanceToWin": 10,
+    "costToPlay": 0,
+    "status": "pending",
+    "queue": [],
+    "processing": false,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "itemsReceived": [],
+    "chances": []
+  },
+  {
+    "id": "2df8eb68-0f88-4c0d-aedc-03c038662195",
+    "items": [
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:105312291668557186697918027683670432318895095400549111254310977742:1:epic",
+      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0:uncommon",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:210624583337114373395836055367340864637790190801098222508621955281:2:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:206:0:epic",
+      "0xbd8ea4184317ed550672a5e74b113b50e0fbf370:169:0:epic",
+      "0x016a6995783e21ad92d88627fbe6e0d8bc658b1e:430:0:epic",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:105312291668557186697918027683670432318895095400549111254310977552:1:legendary",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:16:0:legendary",
+      "0x4589b719d1638aa40f0aabc6557a49d82b6a53d2:6:0:legendary"
+    ],
+    "name": "asdfsdfff",
+    "owner": "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6",
+    "chanceToWin": 10,
+    "costToPlay": 0,
+    "status": "pending",
+    "queue": [],
+    "processing": false,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "itemsReceived": [],
+    "chances": []
+  },
+  {
+    "id": "0626dbdd-b7a0-49ad-9fe5-be90d1c2cee8",
+    "items": [
+      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0:uncommon",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:210624583337114373395836055367340864637790190801098222508621955281:2:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:206:0:epic",
+      "0xbd8ea4184317ed550672a5e74b113b50e0fbf370:169:0:epic",
+      "0x016a6995783e21ad92d88627fbe6e0d8bc658b1e:430:0:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:105312291668557186697918027683670432318895095400549111254310977742:1:epic",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:105312291668557186697918027683670432318895095400549111254310977552:1:legendary",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:16:0:legendary",
+      "0x4589b719d1638aa40f0aabc6557a49d82b6a53d2:6:0:legendary",
+      "0xd50191baed16bc532feb9d499fdaa805fe01d3ff:210624583337114373395836055367340864637790190801098222508621955089:2:common"
+    ],
+    "name": "adfdad",
+    "owner": "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6",
+    "chanceToWin": 10,
+    "costToPlay": 0,
+    "status": "pending",
+    "queue": [],
+    "processing": false,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "itemsReceived": [],
+    "chances": []
+  },
+  {
+    "id": "62747c67-e7f3-4cac-9509-e2f2e5134f56",
+    "items": [
+      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0:uncommon",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:210624583337114373395836055367340864637790190801098222508621955281:2:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:206:0:epic",
+      "0xbd8ea4184317ed550672a5e74b113b50e0fbf370:169:0:epic",
+      "0x016a6995783e21ad92d88627fbe6e0d8bc658b1e:430:0:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:105312291668557186697918027683670432318895095400549111254310977742:1:epic",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:105312291668557186697918027683670432318895095400549111254310977552:1:legendary",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:16:0:legendary",
+      "0x4589b719d1638aa40f0aabc6557a49d82b6a53d2:6:0:legendary",
+      "0xd50191baed16bc532feb9d499fdaa805fe01d3ff:210624583337114373395836055367340864637790190801098222508621955089:2:common"
+    ],
+    "name": "adsffadf",
+    "owner": "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6",
+    "chanceToWin": 10,
+    "costToPlay": 0,
+    "status": "pending",
+    "queue": [],
+    "processing": false,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "itemsReceived": [],
+    "chances": []
+  },
+  {
+    "id": "b0cea1f7-279f-4cb6-8160-48cac8464bcb",
+    "items": [
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:105312291668557186697918027683670432318895095400549111254310977742:1:epic",
+      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0:uncommon",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:210624583337114373395836055367340864637790190801098222508621955281:2:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:206:0:epic",
+      "0xbd8ea4184317ed550672a5e74b113b50e0fbf370:169:0:epic",
+      "0x016a6995783e21ad92d88627fbe6e0d8bc658b1e:430:0:epic",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:105312291668557186697918027683670432318895095400549111254310977552:1:legendary",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:16:0:legendary",
+      "0x4589b719d1638aa40f0aabc6557a49d82b6a53d2:6:0:legendary",
+      "0xd50191baed16bc532feb9d499fdaa805fe01d3ff:210624583337114373395836055367340864637790190801098222508621955089:2:common"
+    ],
+    "name": "asdff",
+    "owner": "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6",
+    "chanceToWin": 10,
+    "costToPlay": 0,
+    "status": "pending",
+    "queue": [],
+    "processing": false,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "itemsReceived": [],
+    "chances": []
+  },
+  {
+    "id": "e2518bc8-480f-4d98-b4fd-f24ef0dc7621",
+    "items": [
+      "0xc7bb550b971418d58922ebcd53e22a4039f6d325:257:0:uncommon",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:210624583337114373395836055367340864637790190801098222508621955281:2:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:206:0:epic",
+      "0xbd8ea4184317ed550672a5e74b113b50e0fbf370:169:0:epic",
+      "0x016a6995783e21ad92d88627fbe6e0d8bc658b1e:430:0:epic",
+      "0xe7cdc8ba8f437954a60bacaccefc0766a5e27af9:105312291668557186697918027683670432318895095400549111254310977742:1:epic",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:105312291668557186697918027683670432318895095400549111254310977552:1:legendary",
+      "0xef821786cdafc77294198c6ed70eac29e13d1b4e:16:0:legendary",
+      "0x4589b719d1638aa40f0aabc6557a49d82b6a53d2:6:0:legendary",
+      "0xd50191baed16bc532feb9d499fdaa805fe01d3ff:210624583337114373395836055367340864637790190801098222508621955089:2:common"
+    ],
+    "name": "asdffadf",
+    "owner": "0x3edfae1ce7aeb54ed6e171c4b13e343ba81669b6",
+    "chanceToWin": 10,
+    "costToPlay": 0,
+    "status": "pending",
+    "queue": [],
+    "processing": false,
+    "cooldown": 0,
+    "cooldownType": 0,
+    "itemsReceived": [],
+    "chances": []
+  },
+  {
+    "id": "bb8e16ec-6da5-4506-995a-4fd020835b65",
+    "items": [],
+    "name": "Test Lottery",
+    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "chanceToWin": 50,
+    "costToPlay": 0,
+    "status": "finished",
+    "queue": [],
+    "processing": false,
+    "cooldown": 0,
+    "cooldownType": "H",
+    "type": 1,
+    "randomAmount": 1,
+    "itemsReceived": [
+      "0xdb7fde75194c2f7b95aeb16d5d72ef902e339def:210624583337114373395836055367340864637790190801098222508621955078",
+      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:2527495000045372480750032664408090375653482289613178670103463460895"
+    ],
+    "itemsWon": [
+      [
+        [
+          "0xdb7fde75194c2f7b95aeb16d5d72ef902e339def:210624583337114373395836055367340864637790190801098222508621955078:2:epic"
+        ]
+      ],
+      [
+        "0x083230402677cad61d7a0cc040dc8a08cfeb809e:2527495000045372480750032664408090375653482289613178670103463460895:24:common"
+      ]
+    ],
+    "chances": [
+      {
+        "player": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+        "playTime": 1737409967
+      },
+      {
+        "player": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+        "playTime": 1737409989
+      },
+      {
+        "player": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+        "playTime": 1737409993
+      },
+      {
+        "player": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+        "playTime": 1737410097
+      }
+    ],
+    "winner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a"
+  },
+  {
+    "id": "7aa8c6e8-ad42-479d-90a0-c3737068a669",
+    "items": [],
+    "name": "Test Lottery",
+    "owner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "chanceToWin": 50,
+    "costToPlay": 0,
+    "status": "finished",
+    "queue": [],
+    "processing": false,
+    "cooldown": 0,
+    "cooldownType": "H",
+    "type": 1,
+    "randomAmount": 1,
+    "itemsReceived": [
+      "0xdb7fde75194c2f7b95aeb16d5d72ef902e339def:210624583337114373395836055367340864637790190801098222508621955078",
+      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:2527495000045372480750032664408090375653482289613178670103463460895"
+    ],
+    "itemsWon": [
+      "0xdb7fde75194c2f7b95aeb16d5d72ef902e339def:210624583337114373395836055367340864637790190801098222508621955078:2:epic",
+      "0x083230402677cad61d7a0cc040dc8a08cfeb809e:2527495000045372480750032664408090375653482289613178670103463460895:24:common"
+    ],
+    "chances": [
+      {
+        "player": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+        "playTime": 1737410357
+      },
+      {
+        "player": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+        "playTime": 1737410360
+      },
+      {
+        "player": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+        "playTime": 1737410361
+      },
+      {
+        "player": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+        "playTime": 1737410363
+      },
+      {
+        "player": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+        "playTime": 1737410369
+      },
+      {
+        "player": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+        "playTime": 1737410430
+      }
+    ],
+    "winner": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a"
   }
 ]

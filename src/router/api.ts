@@ -2,8 +2,9 @@ import { getLeaderboard } from "../components/BasePlayerState";
 import { QuestDefinition, StepDefinition, TaskDefinition } from "../rooms/QuestRoom";
 import { getCache } from "../utils/cache";
 import { PROFILES_CACHE_KEY } from "../utils/initializer";
-import { handleQuestData, handleQuestLeaderboard, handleQuestOutline } from "../utils/questing";
+import { handleQuestData, handleQuestLeaderboard, handleQuestOutline, handleSingleUserQuestData } from "../utils/questing";
 import { getPlazaLocation, getPlazaLocationCurrentReservation, getPlazaReservation, getUserPlazaReservations } from "../utils/reservations";
+import { authentication } from "./admin";
 
 export function apiRouter(router:any){
     router.get('/api/locations/:location/:action/:id', async (req:any, res:any) => {
@@ -78,12 +79,16 @@ export function apiRouter(router:any){
       }
   });
 
-  router.get('/api/quests/outline', (req:any, res:any) => {
+  router.get('/api/quests/outline/:auth', authentication, (req:any, res:any) => {
     handleQuestOutline(req,res)
   });
 
   router.get('/api/quests/:questId/users', (req:any, res:any) => {
     handleQuestData(req, res)
+  })
+
+  router.get('/api/quests/:questId/user/:userId', (req:any, res:any) => {
+    handleSingleUserQuestData(req, res)
   })
 
   router.get('/api/leaderboard', (req:any, res:any) => {

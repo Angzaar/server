@@ -54,7 +54,7 @@ export function adminRouter(router:any){
     });
 }
 
-function authentication(req:any, res:any, next:any){
+export function authentication(req:any, res:any, next:any){
     if(!req.params.auth || req.params.auth !== process.env.ADMIN_AUTH){
         res.status(400).send({valid:false, message:"Invalid authorization"})
         return

@@ -204,7 +204,7 @@ export async function getFiles({
       let entityId = pendingDeployments[req.body.user.toLowerCase()].entityId
       let address = req.body.user.toLowerCase()
       let signature = req.body.signature
-      let target:any
+      let target:string = 'interconnected.online'
       if(req.body.target){
         target = req.body.target
         console.log("target is", target)

@@ -26,6 +26,7 @@ const storage = multer.diskStorage({
 export const upload = multer({ storage: storage,  limits: { fileSize: 300 * 1024 * 1024 }})
 
 export const processUpload = async(req:any, res:any) =>{
+    console.log('processing upload')
     try {
         const body = {...req.body}
         const { signature, hash, userId, locationId, reservationId } = body;

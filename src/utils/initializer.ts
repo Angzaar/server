@@ -27,6 +27,7 @@ export const CUSTOM_ITEMS_FILE = path.join(DATA_LOCATION, process.env.CUSTOM_ITE
 export const TRANSACTIONS_FILE = path.join(DATA_LOCATION, process.env.TRANSACTIONS_FILE)
 export const REWARDS_FILE = path.join(DATA_LOCATION, process.env.REWARDS_FILE)
 export const QUEST_TEMPLATES_FILE = path.join(DATA_LOCATION, process.env.QUEST_TEMPLATES_FILE)
+export const VERSES_FILE = path.join(DATA_LOCATION, process.env.VERSES_FILE)
 
 export const PROFILES_CACHE_KEY = process.env.PROFILE_CACHE_KEY
 export const LOCATIONS_CACHE_KEY = process.env.LOCATIONS_CACHE_KEY
@@ -42,6 +43,7 @@ export const CUSTOM_ITEMS_FILE_CACHE_KEY = process.env.CUSTOM_ITEMS_FILE_CACHE_K
 export const TRANSACTIONS_FILE_CACHE_KEY = process.env.TRANSACTIONS_FILE_CACHE_KEY
 export const REWARDS_CACHE_KEY = process.env.REWARDS_CACHE_KEY
 export const QUEST_TEMPLATES_CACHE_KEY = process.env.QUEST_TEMPLATES_CACHE_KEY
+export const VERSES_CACHE_KEY = process.env.VERSES_CACHE_KEY
 
 export function initServer(){
     initPlayfab()
@@ -61,6 +63,7 @@ export function initServer(){
     loadCache(TRANSACTIONS_FILE, TRANSACTIONS_FILE_CACHE_KEY)
     loadCache(REWARDS_FILE, REWARDS_CACHE_KEY)
     loadCache(QUEST_TEMPLATES_FILE, QUEST_TEMPLATES_CACHE_KEY)
+    loadCache(VERSES_FILE, VERSES_CACHE_KEY)
 
     // Save cache to disk periodically
     setInterval(async () => {
@@ -78,6 +81,7 @@ export function initServer(){
         const transactions = getCache(TRANSACTIONS_FILE_CACHE_KEY)
         const rewards = getCache(REWARDS_CACHE_KEY)
         const quests = getCache(QUEST_TEMPLATES_CACHE_KEY)
+        const verses = getCache(VERSES_CACHE_KEY)
 
         await cacheSyncToFile(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
         await cacheSyncToFile(LOCATIONS_FILE, LOCATIONS_CACHE_KEY, locations);
@@ -93,6 +97,7 @@ export function initServer(){
         await cacheSyncToFile(TRANSACTIONS_FILE, TRANSACTIONS_FILE_CACHE_KEY, transactions);
         await cacheSyncToFile(REWARDS_FILE, REWARDS_CACHE_KEY, rewards);
         await cacheSyncToFile(QUEST_TEMPLATES_FILE, QUEST_TEMPLATES_CACHE_KEY, quests);
+        await cacheSyncToFile(VERSES_FILE, VERSES_CACHE_KEY, verses);
     }, Number(process.env.CACHE_REFRESH_INTERVAL_S) * 1000);
 
     //deployment interval check

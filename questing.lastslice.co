@@ -1,0 +1,22 @@
+server {
+    listen 80;
+    server_name questing.lastslice.co;
+client_max_body_size 300M; # Increase size limit to 50MB
+
+    # Redirect HTTP to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl; # managed by Certbot
+    server_name questing.lastslice.co;
+
+    ssl_certificate /etc/letsencrypt/live/questing.lastslice.co/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/questing.lastslice.co/privkey.pem; # managed by Certbot
+
+     location / {
+        root /var/www/questing;
+        index index.html;
+        try_files $uri $uri/ /index.html; # Serve index.html for SPA routes
+    }
+}

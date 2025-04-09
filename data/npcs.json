@@ -122,7 +122,7 @@
       "tt": "c",
       "id": "9UW85KzM",
       "td": 3,
-      "en": true,
+      "en": false,
       "speed": 0.4,
       "ca": "e",
       "di": {
@@ -5669,27 +5669,27 @@
     {
       "n": "Angry Fan",
       "b": "M",
-      "dn": false,
+      "dn": true,
       "c": false,
       "hc": {
-        "r": 0,
-        "g": 0,
-        "b": 0,
+        "r": 230,
+        "g": 21,
+        "b": 21,
         "a": 1
       },
       "sc": {
-        "r": 139,
-        "g": 87,
-        "b": 42,
+        "r": 240,
+        "g": 164,
+        "b": 26,
         "a": 1
       },
       "ec": {
-        "r": 80,
+        "r": 13,
         "g": 227,
-        "b": 194,
+        "b": 179,
         "a": 1
       },
-      "hs": "urn:decentraland:off-chain:base-avatars:tall_front_01",
+      "hs": "urn:decentraland:off-chain:base-avatars:keanu_hair",
       "l": "Coliseum",
       "tt": "n",
       "td": 3,
@@ -5699,16 +5699,15 @@
       "w": {
         "r": false,
         "i": [
-          "0x404ef3bb6c60e122bc89f30f0f1639fc518fe7e7:0",
           "0x675e4436650fc0e8982d7d8e76ad890341d7a0d7:0",
-          "0xac932751992fe921f9d3944729d204491278dd64:0",
           "0x378cd34662fcd2311743fad74b5a196ad0cb2544:0",
+          "0xac932751992fe921f9d3944729d204491278dd64:0",
           "0x1e13f3cdc5ddee46e3773021aef0882d0018d931:1"
         ]
       },
       "t": {
         "p": [
-          81,
+          82,
           0,
           -10
         ],
@@ -5766,8 +5765,8 @@
       },
       "id": "VcynuPTY",
       "ca": "n",
-      "en": false,
-      "speed": 0.4
+      "en": true,
+      "speed": 0.2999999999999998
     },
     {
       "n": "Doge Spectator",
@@ -25517,7 +25516,7 @@
     {
       "x": 16,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 16,
@@ -26082,7 +26081,7 @@
     {
       "x": 17,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 17,
@@ -26647,7 +26646,7 @@
     {
       "x": 18,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 18,
@@ -27212,7 +27211,7 @@
     {
       "x": 19,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 19,
@@ -27777,7 +27776,7 @@
     {
       "x": 20,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 20,
@@ -28342,7 +28341,7 @@
     {
       "x": 21,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 21,
@@ -28907,7 +28906,7 @@
     {
       "x": 22,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 22,
@@ -29472,7 +29471,7 @@
     {
       "x": 23,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 23,
@@ -30037,7 +30036,7 @@
     {
       "x": 24,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 24,
@@ -30602,7 +30601,7 @@
     {
       "x": 25,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 25,
@@ -31167,7 +31166,7 @@
     {
       "x": 26,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 26,
@@ -31732,7 +31731,7 @@
     {
       "x": 27,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 27,
@@ -32297,7 +32296,7 @@
     {
       "x": 28,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 28,
@@ -32862,7 +32861,7 @@
     {
       "x": 29,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 29,
@@ -33427,7 +33426,7 @@
     {
       "x": 30,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 30,
@@ -33992,7 +33991,7 @@
     {
       "x": 31,
       "y": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "x": 31,

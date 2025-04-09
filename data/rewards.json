@@ -1,0 +1,33 @@
+[
+  {
+    "id": "nft1",
+    "name": "Rare Sword",
+    "type": "ERC721",
+    "blockchain": "ethereum",
+    "contractAddress": "0xNFT_CONTRACT_ADDRESS",
+    "tokenId": 1,
+    "cost": 500
+  },
+  {
+    "id": "dust_reward",
+    "name": "500 Dust",
+    "type": "DUST",
+    "amount": 500,
+    "cost": 450
+  },
+  {
+    "id": "special_role",
+    "name": "VIP Access",
+    "type": "CUSTOM",
+    "customHandler": "grantVipRole",
+    "cost": 1000
+  },
+  {
+    "id": "arcade_credits",
+    "name": "100 Arcade Credits",
+    "type": "CUSTOM",
+    "customHandler": "addArcadeCredits",
+    "amount": 100,
+    "cost": 300
+  }
+]

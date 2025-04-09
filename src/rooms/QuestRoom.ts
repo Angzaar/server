@@ -1,10 +1,26 @@
 import { Room, Client, ServerError, generateId } from "colyseus";
 import { Schema, type, MapSchema } from '@colyseus/schema';
-import { getCache } from "../utils/cache";
-import { PROFILES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY } from "../utils/initializer";
+import { getCache, updateCache } from "../utils/cache";
+import { 
+  PROFILES_CACHE_KEY,
+  QUEST_TEMPLATES_CACHE_KEY, 
+  QUEST_TEMPLATES_FILE,
+  VERSES_CACHE_KEY, 
+  VERSES_FILE 
+} from "../utils/initializer";
 import { v4 } from "uuid";
 import { validateAndCreateProfile } from "./MainRoomHandlers";
 import { getRandomString } from "../utils/questing";
+
+// Helper function to sync quest changes to cache
+function syncQuestToCache(questId: string, questDefinition: QuestDefinition) {
+  const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
+  const idx = quests.findIndex((q: QuestDefinition) => q.questId === questId);
+  if (idx >= 0) {
+    quests[idx] = questDefinition;
+    updateCache(QUEST_TEMPLATES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY, quests);
+  }
+}
 
 interface EphemeralCodeData {
   questId: string;
@@ -107,6 +123,24 @@ export class QuestRoom extends Room<QuestState> {
     this.onMessage("QUEST_OUTLINE", (client: Client, message: any) =>
       this.handleQuestOutline(client, message)
     );
+
+    this.onMessage("QUEST_STATS", (client: Client, message: any) =>
+      this.handleQuestStats(client, message)
+    );
+
+    // Verse-related message handlers
+    this.onMessage("VERSE_CREATE", (client: Client, message: any) =>
+      this.handleCreateVerse(client, message)
+    );
+    this.onMessage("VERSE_EDIT", (client: Client, message: any) =>
+      this.handleEditVerse(client, message)
+    );
+    this.onMessage("VERSE_DELETE", (client: Client, message: any) =>
+      this.handleDeleteVerse(client, message)
+    );
+
+    this.onMessage("QUEST_CREATOR", this.handleCreateQuest.bind(this));
+    this.onMessage("QUEST_DELETE", this.handleResetQuest.bind(this));
   }
 
   onJoin(client: Client, options: any) {
@@ -114,7 +148,11 @@ export class QuestRoom extends Room<QuestState> {
 
     if(options.questId === "creator"){
       let quests = getCache(QUEST_TEMPLATES_CACHE_KEY)
-      client.send("QUEST_CREATOR", quests.filter((q:any) => q.creator === client.userData.userId))
+      let verses = getCache(VERSES_CACHE_KEY)
+      client.send("QUEST_CREATOR", {
+        quests: quests.filter((q:any) => q.creator === client.userData.userId),
+        verses: verses.filter((v:any) => v.creator === client.userData.userId)
+      })
       return
     }
 
@@ -136,13 +174,101 @@ export class QuestRoom extends Room<QuestState> {
         q.questId === options.questId &&
         q.questVersion === this.questDefinition!.version
     );
-    if(userQuestInfo && userQuestInfo.started && !userQuestInfo.completed){
-      userQuestInfo.startTime = Math.floor(Date.now()/1000)
-    }
+    // if(userQuestInfo && userQuestInfo.started && !userQuestInfo.completed){
+    //   userQuestInfo.startTime = Math.floor(Date.now()/1000)
+    // }
     client.send("QUEST_CONNECTION", {connected:true, questId:options.questId})
-    client.send("QUEST_DATA", userQuestInfo)
+    client.send("QUEST_DATA", {questId:options.questId, userQuestInfo: this.sanitizeUserQuestData(userQuestInfo)})
     // console.log(this.questDefinition)
   
+  }
+
+  // Sanitize user quest data by removing IDs but keeping descriptive information
+  private sanitizeUserQuestData(userQuestInfo: any) {
+    if (!userQuestInfo || !this.questDefinition) return null;
+    
+    // Calculate progress metrics
+    const totalSteps = this.questDefinition.steps.length;
+    let stepsCompleted = 0;
+    
+    if (userQuestInfo.steps) {
+      for (const step of userQuestInfo.steps) {
+        if (step.completed) stepsCompleted++;
+      }
+    }
+    
+    // Calculate total tasks and completed tasks
+    let totalTasks = 0;
+    let tasksCompleted = 0;
+    
+    this.questDefinition.steps.forEach(stepDef => {
+      totalTasks += stepDef.tasks.length;
+      
+      // Find matching user step
+      const userStep = userQuestInfo.steps.find((s: any) => s.stepId === stepDef.stepId);
+      if (userStep && userStep.tasks) {
+        userStep.tasks.forEach((t: any) => {
+          const taskDef = stepDef.tasks.find(td => td.taskId === t.taskId);
+          if (taskDef && (t.completed || (t.count >= taskDef.requiredCount))) {
+            tasksCompleted++;
+          }
+        });
+      }
+    });
+    
+    // Calculate progress percentages
+    const progressPercent = totalSteps > 0 ? (stepsCompleted / totalSteps) * 100 : 0;
+    const taskProgressPercent = totalTasks > 0 ? (tasksCompleted / totalTasks) * 100 : 0;
+    
+    // Create a deep copy with descriptive fields but without IDs
+    const sanitized = {
+      ...userQuestInfo,
+      title: this.questDefinition.title || 'Untitled Quest',
+      // Add progress data
+      totalSteps,
+      stepsCompleted,
+      progress: progressPercent,
+      totalTasks, 
+      tasksCompleted,
+      taskProgress: taskProgressPercent,
+      steps: userQuestInfo.steps ? userQuestInfo.steps.map((step: any) => {
+        // Find matching step in quest definition to get name
+        const stepDef = this.questDefinition!.steps.find(s => s.stepId === step.stepId);
+        
+        return {
+          completed: step.completed,
+          name: stepDef?.name || '',
+          tasks: step.tasks ? step.tasks.map((task: any) => {
+            // Find matching task in quest definition to get description and metaverse
+            const taskDef = stepDef?.tasks.find(t => t.taskId === task.taskId);
+            
+            return {
+              count: task.count,
+              completed: task.completed,
+              description: taskDef?.description || '',
+              metaverse: taskDef?.metaverse || 'DECENTRALAND'
+              // We're deliberately not including IDs and prerequisiteTaskIds
+            };
+          }) : []
+        };
+      }) : [],
+      
+      // Add quest template for complete structure
+      template: {
+        title: this.questDefinition.title,
+        questType: this.questDefinition.questType,
+        steps: this.questDefinition.steps.map(step => ({
+          name: step.name || '',
+          tasks: step.tasks.map(task => ({
+            description: task.description || '',
+            requiredCount: task.requiredCount,
+            metaverse: task.metaverse
+          }))
+        }))
+      }
+    };
+    
+    return sanitized;
   }
 
   private loadQuest(questId: string) {
@@ -174,7 +300,7 @@ export class QuestRoom extends Room<QuestState> {
         q.questId === this.state.questId &&
         q.questVersion === this.questDefinition.version
     );
-    if (userQuestInfo) {
+    if (userQuestInfo && userQuestInfo.started && !userQuestInfo.completed) {
       userQuestInfo.elapsedTime += Math.floor(Date.now()/1000) - userQuestInfo.startTime
     }
   }
@@ -236,6 +362,11 @@ async handleQuestAction(client: Client, payload: any) {
     // Possibly auto-start if FIRST_TASK or bail if the quest requires explicit start
     userQuestInfo = await this.handleStartQuest(client, { questId }, /*autoStart*/ true);
     if (!userQuestInfo) return;
+  }
+
+  if(userQuestInfo.completed && !this.questDefinition.allowReplay){
+    client.send("QUEST_ERROR", { message: "Quest already completed." });
+    return;
   }
 
   // 7) Find the step definition in the quest
@@ -341,7 +472,7 @@ async handleQuestAction(client: Client, payload: any) {
 
   if(userTask.count >= taskDef.requiredCount){
     userTask.completed = true
-    client.send("TASK_COMPLETE", {questId, stepId, taskId, taskName:taskDef.description})
+    client.send("TASK_COMPLETE", {questId, stepId, taskId, taskName:taskDef.description, userQuestInfo: this.sanitizeUserQuestData(userQuestInfo)})
   }
 
   // 13) Check if this step is now completed
@@ -350,13 +481,13 @@ async handleQuestAction(client: Client, payload: any) {
     const ut = userStep.tasks.find((u: any) => u.taskId === defTask.taskId);
     const reqCount = defTask.requiredCount ?? 0;
     // If user hasn't recorded the task or count < req => not done
-    return ut && (ut.count >= reqCount);
+    return ut && ((ut.count >= reqCount) || ut.completed === true);
   });
 
   if (isStepDone && !userStep.completed) {
     userStep.completed = true;
     // Optionally broadcast so front-end knows a step is done
-    client.send("STEP_COMPLETE", { questId, stepId});
+    client.send("STEP_COMPLETE", { questId, stepId, userQuestInfo: this.sanitizeUserQuestData(userQuestInfo) });
     console.log(`[QuestRoom] user="${client.userData.userId}" completed step="${stepId}" in quest="${questId}".`);
   }
 
@@ -369,7 +500,7 @@ async handleQuestAction(client: Client, payload: any) {
   if (allStepsDone && !userQuestInfo.completed) {
     userQuestInfo.completed = true;
     userQuestInfo.elapsedTime += Math.floor(Date.now()/1000) - userQuestInfo.startTime
-    this.broadcast("QUEST_COMPLETE", { questId, user: client.userData.userId });
+    this.broadcast("QUEST_COMPLETE", { questId, user: client.userData.userId, userQuestInfo: this.sanitizeUserQuestData(userQuestInfo) });
     console.log(`[QuestRoom] user="${client.userData.userId}" completed quest="${questId}" fully!`);
   
     // === NEW: If it's a ONE_SHOT quest, disable it for everyone ===
@@ -478,7 +609,7 @@ async handleStartQuest(client: Client, payload: any, autoStart = false) {
     client.send("QUEST_STARTED", { questId });
   }
 
-  client.send("QUEST_DATA", userQuestInfo)
+  client.send("QUEST_DATA", {questId, userQuestInfo: this.sanitizeUserQuestData(userQuestInfo)})
   return userQuestInfo;
 }
 
@@ -622,11 +753,17 @@ async handleStartQuest(client: Client, payload: any, autoStart = false) {
     if (typeof allowReplay === 'boolean') {
       quest.allowReplay = allowReplay;
     }
-    if (typeof startTime === 'number') {
-      quest.startTime = startTime;
+
+    if(payload.hasOwnProperty("startTime")){
+      quest.startTime = startTime
+    }else{
+      delete quest.startTime 
     }
-    if (typeof endTime === 'number') {
-      quest.endTime = endTime;
+
+    if(payload.hasOwnProperty("endTime")){
+      quest.endTime = payload.endTime
+    }else{
+      quest.endTime = endTime
     }
 
     // 3) confirm
@@ -662,6 +799,221 @@ async handleStartQuest(client: Client, payload: any, autoStart = false) {
       };
 
       client.send("QUEST_OUTLINE", {questId:questId, code:code})
+    }
+  }
+
+  /**
+   * handleQuestStats
+   * Generates quest stats data similar to the API endpoint
+   * and sends it back to the client
+   */
+  handleQuestStats(client: Client, payload: any) {
+    console.log('handling quest stats', payload);
+    
+    const { questId, sortBy = 'elapsedTime', order = 'asc', limit = 100, completedOnly = false } = payload;
+    
+    if(this.state.questId === "creator") {
+      const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
+      const quest = quests.find((q: QuestDefinition) => q.questId === questId);
+      
+      if(!quest) {
+        console.log('no quest found in creator room for stats');
+        client.send("QUEST_ERROR", { message: "Quest not found" });
+        return;
+      }
+      
+      // Generate stats data
+      const profiles = getCache(PROFILES_CACHE_KEY);
+      let userData: any[] = [];
+      
+      for (const profile of profiles) {
+        if (!profile.questsProgress) continue;
+        
+        // find if the user has this quest
+        const info = profile.questsProgress.find((q: any) => q.questId === questId);
+        if (!info) continue;
+        
+        if (completedOnly && !info.completed) {
+          continue;
+        }
+        
+        // compute elapsedTime
+        let elapsedTime = info.elapsedTime;
+        
+        // count how many steps completed
+        let stepsCompleted = 0;
+        let totalSteps = info.steps.length;
+        for (const step of info.steps) {
+          if (step.completed) stepsCompleted++;
+        }
+        
+        userData.push({
+          userId: profile.ethAddress,
+          name: profile.name,
+          completed: info.completed,
+          startTime: info.startTime,
+          timeCompleted: info.timeCompleted,
+          elapsedTime,
+          stepsCompleted,
+          totalSteps,
+          steps: info.steps.map((step: any) => {
+            // Find matching step in quest definition
+            const stepDef = quest.steps.find((s: StepDefinition) => s.stepId === step.stepId);
+            if (!stepDef) return null;
+            
+            return {
+              name: stepDef.name,
+              completed: step.completed,
+              tasks: step.tasks.map((task: any) => {
+                // Find matching task in step definition
+                const taskDef = stepDef.tasks.find((t: TaskDefinition) => t.taskId === task.taskId);
+                if (!taskDef) return null;
+                
+                return {
+                  description: taskDef.description,
+                  count: task.count,
+                  requiredCount: taskDef.requiredCount,
+                  completed: task.completed,
+                  metaverse: taskDef.metaverse
+                };
+              }).filter(Boolean) // Remove any null entries
+            };
+          }).filter(Boolean) // Remove any null entries
+        });
+      }
+      
+      // Sort by the requested field
+      userData.sort((a, b) => {
+        if (order === 'asc') return a[sortBy] - b[sortBy];
+        else return b[sortBy] - a[sortBy];
+      });
+      
+      // Limit
+      userData = userData.slice(0, limit);
+      
+      // Sanitize quest data to remove IDs
+      const sanitizedQuest = {
+        title: quest.title,
+        questType: quest.questType,
+        enabled: quest.enabled,
+        allowReplay: quest.allowReplay,
+        startTime: quest.startTime,
+        endTime: quest.endTime,
+        version: quest.version,
+        steps: quest.steps.map((step: StepDefinition) => ({
+          name: step.name,
+          tasks: step.tasks.map((task: TaskDefinition) => ({
+            description: task.description,
+            requiredCount: task.requiredCount,
+            metaverse: task.metaverse
+          }))
+        }))
+      };
+      
+      // Send sanitized stats to client
+      client.send("QUEST_STATS", { questId, quest: sanitizedQuest, userData });
+      return;
+    } else {
+      if (!this.questDefinition) {
+        client.send("QUEST_ERROR", { message: "No quest loaded" });
+        return;
+      }
+      
+      if (questId !== this.questDefinition.questId) {
+        client.send("QUEST_ERROR", { message: "Quest ID mismatch" });
+        return;
+      }
+      
+      // Generate stats data - same as above but for loaded quest
+      const profiles = getCache(PROFILES_CACHE_KEY);
+      let userData: any[] = [];
+      
+      for (const profile of profiles) {
+        if (!profile.questsProgress) continue;
+        
+        // find if the user has this quest
+        const info = profile.questsProgress.find((q: any) => q.questId === questId);
+        if (!info) continue;
+        
+        if (completedOnly && !info.completed) {
+          continue;
+        }
+        
+        // compute elapsedTime
+        let elapsedTime = info.elapsedTime;
+        
+        // count how many steps completed
+        let stepsCompleted = 0;
+        let totalSteps = info.steps.length;
+        for (const step of info.steps) {
+          if (step.completed) stepsCompleted++;
+        }
+        
+        userData.push({
+          userId: profile.ethAddress,
+          name: profile.name,
+          completed: info.completed,
+          startTime: info.startTime,
+          timeCompleted: info.timeCompleted,
+          elapsedTime,
+          stepsCompleted,
+          totalSteps,
+          steps: info.steps.map((step: any) => {
+            // Find matching step in quest definition
+            const stepDef = this.questDefinition.steps.find((s: StepDefinition) => s.stepId === step.stepId);
+            if (!stepDef) return null;
+            
+            return {
+              name: stepDef.name,
+              completed: step.completed,
+              tasks: step.tasks.map((task: any) => {
+                // Find matching task in step definition
+                const taskDef = stepDef.tasks.find((t: TaskDefinition) => t.taskId === task.taskId);
+                if (!taskDef) return null;
+                
+                return {
+                  description: taskDef.description,
+                  count: task.count,
+                  requiredCount: taskDef.requiredCount,
+                  completed: task.completed,
+                  metaverse: taskDef.metaverse
+                };
+              }).filter(Boolean) // Remove any null entries
+            };
+          }).filter(Boolean) // Remove any null entries
+        });
+      }
+      
+      // Sort by the requested field
+      userData.sort((a, b) => {
+        if (order === 'asc') return a[sortBy] - b[sortBy];
+        else return b[sortBy] - a[sortBy];
+      });
+      
+      // Limit
+      userData = userData.slice(0, limit);
+      
+      // Sanitize quest data to remove IDs
+      const sanitizedQuest = {
+        title: this.questDefinition.title,
+        questType: this.questDefinition.questType,
+        enabled: this.questDefinition.enabled,
+        allowReplay: this.questDefinition.allowReplay,
+        startTime: this.questDefinition.startTime,
+        endTime: this.questDefinition.endTime,
+        version: this.questDefinition.version,
+        steps: this.questDefinition.steps.map((step: StepDefinition) => ({
+          name: step.name,
+          tasks: step.tasks.map((task: TaskDefinition) => ({
+            description: task.description,
+            requiredCount: task.requiredCount,
+            metaverse: task.metaverse
+          }))
+        }))
+      };
+      
+      // Send sanitized stats to client
+      client.send("QUEST_STATS", { questId, quest: sanitizedQuest, userData });
     }
   }
 
@@ -764,14 +1116,91 @@ private handleIterateQuest(client: Client, payload: any) {
     console.log(`[QuestRoom] The quest data "${questId}" was forcibly reset by creator="${this.questDefinition.creator}" for all participants.`);
   }
   
-}
+  // Verse-related handlers
+  
+  handleCreateVerse(client: Client, message: any) {
+    console.log("handleCreateVerse", message)
+    // Ensure only the verse creator can create it
+    const clientId = client.userData?.userId;
+    if (!clientId || (clientId !== message.creator && clientId !== "Admin")) {
+      client.send("VERSE_ERROR", { message: "Not authorized to create verse" });
+      return;
+    }
 
-function syncQuestToCache(questId: string, updatedQuest: QuestDefinition) {
-  const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
-  const questIndex = quests.findIndex((q: QuestDefinition) => q.questId === questId);
-  if (questIndex >= 0) {
-    quests[questIndex] = updatedQuest;
+    const verse = message;
+    verse.id = v4();
+
+    // Get existing verses
+    const verses = getCache(VERSES_CACHE_KEY)
+    verses.push(verse);
+
+    // Send to client
+    client.send("VERSE_CREATED", verse);
+  }
+
+  handleEditVerse(client: Client, message: any) {
+    // Ensure only the verse creator can edit it
+    const clientId = client.userData?.userId;
+    if (!clientId || (clientId !== message.creator && clientId !== "Admin")) {
+      client.send("VERSE_ERROR", { message: "Not authorized to edit this verse" });
+      return;
+    }
+
+    // Get existing verses
+    const verses = getCache(VERSES_CACHE_KEY) || [];
+    const idx = verses.findIndex((v: any) => v.id === message.id);
+
+    if (idx === -1) {
+      client.send("VERSE_ERROR", { message: "Verse not found" });
+      return;
+    }
+
+    // Update verse
+    verses[idx] = message;
+
+    // Update cache
+    updateCache(VERSES_CACHE_KEY, VERSES_FILE, verses);
+
+    // Send to client
+    client.send("VERSE_EDITED", message);
+  }
+
+  handleDeleteVerse(client: Client, message: any) {
+    // Ensure only the verse creator can delete it
+    const clientId = client.userData?.userId;
+    
+    // Get existing verses
+    const verses = getCache(VERSES_CACHE_KEY) || [];
+    const verse = verses.find((v: any) => v.id === message.id);
+    
+    if (!verse) {
+      client.send("VERSE_ERROR", { message: "Verse not found" });
+      return;
+    }
+    
+    if (!clientId || (clientId !== verse.creator && clientId !== "Admin")) {
+      client.send("VERSE_ERROR", { message: "Not authorized to delete this verse" });
+      return;
+    }
+
+    // Check if verse is used in any quests
+    const quests = getCache(QUEST_TEMPLATES_CACHE_KEY) || [];
+    const verseInUse = quests.some((quest: any) => {
+      return quest.verses && quest.verses.includes(message.id);
+    });
+
+    if (verseInUse) {
+      client.send("VERSE_ERROR", { message: "Cannot delete verse as it is used in one or more quests" });
+      return;
+    }
+
+    // Remove verse
+    const newVerses = verses.filter((v: any) => v.id !== message.id);
+
+    // Update cache
+    updateCache(VERSES_CACHE_KEY, VERSES_FILE, newVerses);
+
+    // Send to client
+    client.send("VERSE_DELETED", { id: message.id });
   }
 }
-
-//
