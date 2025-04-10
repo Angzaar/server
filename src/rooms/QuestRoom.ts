@@ -3,6 +3,7 @@ import { Schema, type, MapSchema } from '@colyseus/schema';
 import { getCache, updateCache } from "../utils/cache";
 import { 
   PROFILES_CACHE_KEY,
+  PROFILES_FILE,
   QUEST_TEMPLATES_CACHE_KEY, 
   QUEST_TEMPLATES_FILE,
   VERSES_CACHE_KEY, 
@@ -11,7 +12,8 @@ import {
 import { v4 } from "uuid";
 import { validateAndCreateProfile } from "./MainRoomHandlers";
 import { getRandomString } from "../utils/questing";
-
+import { addQuestRoom, removeQuestRoom, questRooms } from ".";
+import { BasePlayerState } from "../components/BasePlayerState";
 // Helper function to sync quest changes to cache
 function syncQuestToCache(questId: string, questDefinition: QuestDefinition) {
   const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
@@ -71,6 +73,7 @@ export const ephemeralCodes: Record<string, EphemeralCodeData> = {};
 
 class QuestState extends Schema {
   @type('string') questId: string = '';
+  @type('string') userId: string = '';
 }
 
 export class QuestRoom extends Room<QuestState> {
@@ -93,6 +96,7 @@ export class QuestRoom extends Room<QuestState> {
 
     // The questId will be set in loadQuest anyway, but let's store it here for clarity
     this.state.questId = options.questId;
+    addQuestRoom(this)
 
     if(options.questId !== "creator"){
       this.loadQuest(options.questId);
@@ -126,6 +130,10 @@ export class QuestRoom extends Room<QuestState> {
 
     this.onMessage("QUEST_STATS", (client: Client, message: any) =>
       this.handleQuestStats(client, message)
+    );
+
+    this.onMessage("FORCE_COMPLETE_TASK", (client: Client, message: any) =>
+      this.handleForceCompleteTask(client, message)
     );
 
     // Verse-related message handlers
@@ -168,6 +176,8 @@ export class QuestRoom extends Room<QuestState> {
     if (!profile) return;
 
     // console.log('profile is', profile)
+    this.state.userId = client.userData.userId;
+    this
 
     let userQuestInfo = profile.questsProgress.find(
       (q: any) =>
@@ -303,6 +313,10 @@ export class QuestRoom extends Room<QuestState> {
     if (userQuestInfo && userQuestInfo.started && !userQuestInfo.completed) {
       userQuestInfo.elapsedTime += Math.floor(Date.now()/1000) - userQuestInfo.startTime
     }
+  }
+
+  onDispose() {
+    removeQuestRoom(this)
   }
 
 /**************************************
@@ -473,6 +487,16 @@ async handleQuestAction(client: Client, payload: any) {
   if(userTask.count >= taskDef.requiredCount){
     userTask.completed = true
     client.send("TASK_COMPLETE", {questId, stepId, taskId, taskName:taskDef.description, userQuestInfo: this.sanitizeUserQuestData(userQuestInfo)})
+    
+    // Notify creator rooms
+    this.notifyCreatorRooms("TASK_COMPLETED_BY_USER", {
+      questId,
+      stepId,
+      taskId,
+      taskName: taskDef.description,
+      userId: client.userData.userId,
+      userName: profile.name || client.userData.userId
+    });
   }
 
   // 13) Check if this step is now completed
@@ -489,6 +513,15 @@ async handleQuestAction(client: Client, payload: any) {
     // Optionally broadcast so front-end knows a step is done
     client.send("STEP_COMPLETE", { questId, stepId, userQuestInfo: this.sanitizeUserQuestData(userQuestInfo) });
     console.log(`[QuestRoom] user="${client.userData.userId}" completed step="${stepId}" in quest="${questId}".`);
+    
+    // Notify creator rooms
+    this.notifyCreatorRooms("STEP_COMPLETED_BY_USER", {
+      questId,
+      stepId,
+      stepName: stepDef.name,
+      userId: client.userData.userId,
+      userName: profile.name || client.userData.userId
+    });
   }
 
   // 13) Check if all steps are done => quest complete
@@ -502,6 +535,15 @@ async handleQuestAction(client: Client, payload: any) {
     userQuestInfo.elapsedTime += Math.floor(Date.now()/1000) - userQuestInfo.startTime
     this.broadcast("QUEST_COMPLETE", { questId, user: client.userData.userId, userQuestInfo: this.sanitizeUserQuestData(userQuestInfo) });
     console.log(`[QuestRoom] user="${client.userData.userId}" completed quest="${questId}" fully!`);
+    
+    // Notify creator rooms
+    this.notifyCreatorRooms("QUEST_COMPLETED_BY_USER", {
+      questId,
+      questTitle: this.questDefinition.title,
+      userId: client.userData.userId,
+      userName: profile.name || client.userData.userId,
+      elapsedTime: userQuestInfo.elapsedTime
+    });
   
     // === NEW: If it's a ONE_SHOT quest, disable it for everyone ===
     if (this.questDefinition.questType === "ONE_SHOT") {
@@ -814,7 +856,7 @@ async handleStartQuest(client: Client, payload: any, autoStart = false) {
     
     if(this.state.questId === "creator") {
       const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
-      const quest = quests.find((q: QuestDefinition) => q.questId === questId);
+      const quest = quests.find((q: QuestDefinition) => q.questId === questId && q.creator === client.userData.userId);
       
       if(!quest) {
         console.log('no quest found in creator room for stats');
@@ -864,12 +906,14 @@ async handleStartQuest(client: Client, payload: any, autoStart = false) {
             return {
               name: stepDef.name,
               completed: step.completed,
+              stepId: step.stepId,
               tasks: step.tasks.map((task: any) => {
                 // Find matching task in step definition
                 const taskDef = stepDef.tasks.find((t: TaskDefinition) => t.taskId === task.taskId);
                 if (!taskDef) return null;
                 
                 return {
+                  taskId: task.taskId,
                   description: taskDef.description,
                   count: task.count,
                   requiredCount: taskDef.requiredCount,
@@ -902,7 +946,9 @@ async handleStartQuest(client: Client, payload: any, autoStart = false) {
         version: quest.version,
         steps: quest.steps.map((step: StepDefinition) => ({
           name: step.name,
+          stepId: step.stepId,
           tasks: step.tasks.map((task: TaskDefinition) => ({
+            taskId: task.taskId,
             description: task.description,
             requiredCount: task.requiredCount,
             metaverse: task.metaverse
@@ -913,7 +959,8 @@ async handleStartQuest(client: Client, payload: any, autoStart = false) {
       // Send sanitized stats to client
       client.send("QUEST_STATS", { questId, quest: sanitizedQuest, userData });
       return;
-    } else {
+    } 
+    else {
       if (!this.questDefinition) {
         client.send("QUEST_ERROR", { message: "No quest loaded" });
         return;
@@ -1159,7 +1206,7 @@ private handleIterateQuest(client: Client, payload: any) {
     verses[idx] = message;
 
     // Update cache
-    updateCache(VERSES_CACHE_KEY, VERSES_FILE, verses);
+    // updateCache(VERSES_CACHE_KEY, VERSES_FILE, verses);
 
     // Send to client
     client.send("VERSE_EDITED", message);
@@ -1170,7 +1217,7 @@ private handleIterateQuest(client: Client, payload: any) {
     const clientId = client.userData?.userId;
     
     // Get existing verses
-    const verses = getCache(VERSES_CACHE_KEY) || [];
+    let verses = getCache(VERSES_CACHE_KEY) || [];
     const verse = verses.find((v: any) => v.id === message.id);
     
     if (!verse) {
@@ -1195,12 +1242,228 @@ private handleIterateQuest(client: Client, payload: any) {
     }
 
     // Remove verse
-    const newVerses = verses.filter((v: any) => v.id !== message.id);
-
-    // Update cache
+    let newVerses = verses.filter((v: any) => v.id !== message.id);
     updateCache(VERSES_CACHE_KEY, VERSES_FILE, newVerses);
 
     // Send to client
     client.send("VERSE_DELETED", { id: message.id });
+  }
+
+  handleForceCompleteTask(client: Client, message: any) {
+    const { questId, stepId, taskId, userId } = message;
+    
+    console.log(`[QuestRoom] handleForceCompleteTask: questId=${questId}, stepId=${stepId}, taskId=${taskId}, userId=${userId}`);
+    
+    const quest:QuestDefinition = getCache(QUEST_TEMPLATES_CACHE_KEY).find((q: any) => q.questId === questId);
+    if(!quest){
+      console.log("Quest not found")
+      client.send("QUEST_ERROR", { message: `Quest ${questId} not found` });
+      return;
+    }
+    
+    // 1. Check if the client is the creator of the quest
+    if (client.userData.userId !== quest.creator) {
+      console.log("Not the creator")
+      client.send("QUEST_ERROR", { message: "Only the quest creator can force complete tasks" });
+      return;
+    }
+    
+    // 2. Get the step and task from the quest definition
+    const stepDef = quest.steps.find(s => s.stepId === stepId);
+    if (!stepDef) {
+      console.log("Step not found")
+      client.send("QUEST_ERROR", { message: `Step ${stepId} not found in quest` });
+      return;
+    }
+    
+    const taskDef = stepDef.tasks.find(t => t.taskId === taskId);
+    if (!taskDef) { 
+      console.log("Task not found")
+      client.send("QUEST_ERROR", { message: `Task ${taskId} not found in step ${stepId}` });
+      return;
+    }
+    
+    // 3. Get the user profile
+    const profiles = getCache(PROFILES_CACHE_KEY);
+    const profile = profiles.find((p: any) => p.ethAddress === userId);
+    
+    if (!profile) {
+      console.log("User not found")
+      client.send("QUEST_ERROR", { message: `User ${userId} not found` });
+      return;
+    }
+    
+    // 4. Get the user's quest progress
+    let userQuestInfo = profile.questsProgress?.find(
+      (q: any) => q.questId === questId && q.questVersion === quest.version
+    );
+    
+    if (!userQuestInfo) {
+      client.send("QUEST_ERROR", { message: `User ${userId} has not started this quest` });
+      return;
+    }
+    
+    // 5. Get or create the step progress
+    let userStep = userQuestInfo.steps.find((s: any) => s.stepId === stepId);
+    if (!userStep) {
+      userStep = {
+        stepId,
+        completed: false,
+        tasks: stepDef.tasks.map((t) => ({
+          taskId: t.taskId,
+          count: 0,
+          completed: t.taskId === taskId // Mark only the forced task as completed
+        }))
+      };
+      userQuestInfo.steps.push(userStep);
+    }
+    
+    // 6. Get or create the task progress
+    let userTask = userStep.tasks.find((t: any) => t.taskId === taskId);
+    if (!userTask) {
+      userTask = {
+        taskId,
+        count: taskDef.requiredCount || 1,
+        completed: true
+      };
+      userStep.tasks.push(userTask);
+    } else {
+      // Update the task to be completed
+      userTask.count = taskDef.requiredCount || 1;
+      userTask.completed = true;
+    }
+    
+    // 7. Check if the step is now completed
+    const isStepDone = stepDef.tasks.every((defTask) => {
+      const ut = userStep.tasks.find((u: any) => u.taskId === defTask.taskId);
+      const reqCount = defTask.requiredCount ?? 0;
+      return ut && ((ut.count >= reqCount) || ut.completed === true);
+    });
+    
+    if (isStepDone && !userStep.completed) {
+      userStep.completed = true;
+    }
+    
+    // 8. Check if the quest is now completed
+    const allStepsDone = quest.steps.every((defStep) => {
+      const st = userQuestInfo.steps.find((u: any) => u.stepId === defStep.stepId);
+      return st && st.completed;
+    });
+    
+    if (allStepsDone && !userQuestInfo.completed) {
+      userQuestInfo.completed = true;
+      userQuestInfo.elapsedTime += Math.floor(Date.now()/1000) - userQuestInfo.startTime;
+    }
+    
+    // // 10. Update the task count and completed tasks count
+    // let tasksCompleted = 0;
+    // for (const step of userQuestInfo.steps) {
+    //   for (const task of step.tasks) {
+    //     if (task.completed) {
+    //       tasksCompleted++;
+    //     }
+    //   }
+    // }
+    // userQuestInfo.tasksCompleted = tasksCompleted;
+    
+    // // 11. Update stepsCompleted count
+    // let stepsCompleted = 0;
+    // for (const step of userQuestInfo.steps) {
+    //   if (step.completed) {
+    //     stepsCompleted++;
+    //   }
+    // }
+    // userQuestInfo.stepsCompleted = stepsCompleted;
+    
+    // // 12. Save the changes to the cache
+    // updateCache(PROFILES_CACHE_KEY, PROFILES_FILE, profiles);
+    
+    // 13. Notify the client of success
+    client.send("FORCE_COMPLETE_SUCCESS", { 
+      questId, 
+      stepId, 
+      taskId, 
+      userId, 
+      message: `Task ${taskId} has been force completed for user ${userId}`
+    });
+    
+    // 14. Find the target user's client in any QuestRoom instance and notify them
+    const { questRooms } = require('./index');
+    for (const [roomId, roomInstance] of questRooms.entries()) {
+      if (roomInstance.state.questId === questId) {
+        // Found a room for this quest, now find the client
+        roomInstance.clients.forEach((c: Client) => {
+          if (c.userData && c.userData.userId === userId) {
+            // Found the user, notify them
+            console.log("NOTIFYING USER of force complete task", userId)
+            c.send("TASK_COMPLETE", {
+              questId, 
+              stepId, 
+              taskId, 
+              taskName: taskDef.description,
+              userQuestInfo: roomInstance.sanitizeUserQuestData(userQuestInfo),
+              forcedByAdmin: true
+            });
+            
+            // If step was completed, notify of that too
+            if (isStepDone) {
+              c.send("STEP_COMPLETE", { 
+                questId, 
+                stepId,
+                userQuestInfo: roomInstance.sanitizeUserQuestData(userQuestInfo),
+                forcedByAdmin: true
+              });
+            }
+            
+            // If quest was completed, notify of that too
+            if (allStepsDone) {
+              c.send("QUEST_COMPLETE", { 
+                questId, 
+                userQuestInfo: roomInstance.sanitizeUserQuestData(userQuestInfo),
+                forcedByAdmin: true
+              });
+            }
+          }
+        });
+      }
+    }
+  }
+
+  /**
+   * Notifies all creator rooms about quest progress events
+   * This allows quest creators to get real-time updates when their quests are being interacted with
+   */
+  private notifyCreatorRooms(messageType: string, data: any) {
+    const { questId } = data;
+    if (!questId) return;
+
+    // Loop through all quest rooms to find creator rooms
+    for (const [roomId, room] of questRooms.entries()) {
+      // Skip if not a creator room
+      if (room.state.questId !== "creator") continue;
+      
+      try {
+        // Get the room's private questDefinition property using reflection
+        // We need to access the questDefinition to check if the room's creator owns this quest
+        const creatorQuests = getCache(QUEST_TEMPLATES_CACHE_KEY);
+        const creatorClients = Array.from(room.clients.values());
+        
+        // For each client in the creator room
+        for (const creatorClient of creatorClients) {
+          // Check if this client is the creator of the quest
+          const isCreatorOfQuest = creatorQuests.some((quest: QuestDefinition) => 
+            quest.questId === questId && quest.creator === creatorClient.userData.userId
+          );
+          
+          // Only send the notification to the creator of the quest
+          if (isCreatorOfQuest) {
+            console.log(`Notifying creator ${creatorClient.userData.userId} about ${messageType} for quest ${questId}`);
+            creatorClient.send(messageType, data);
+          }
+        }
+      } catch (error) {
+        console.error(`Error notifying creator room ${roomId}:`, error);
+      }
+    }
   }
 }

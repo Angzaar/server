@@ -7,7 +7,7 @@
     "startTrigger": "FIRST_TASK",
     "title": "Egg Hunt Testing Quest.",
     "allowReplay": true,
-    "creator": "0x7bbea9c18cd0541acab8c19da2b11d0c03faef1c",
+    "creator": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
     "steps": [
       {
         "name": "Collect Egg",

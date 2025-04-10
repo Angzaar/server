@@ -2,11 +2,12 @@ import { Room } from "colyseus";
 import { MainRoom } from "./MainRoom";
 import { ArtRoom } from "./ArtRoom";
 import { BlitzRoom } from "./BlitzRoom";
-
+import { QuestRoom } from "./QuestRoom";
 
 export let mainRooms:Map<string, MainRoom> = new Map()
 export let artGalleryRooms:Map<string, ArtRoom> = new Map()
 export let blitzRooms:Map<string, BlitzRoom> = new Map()
+export let questRooms:Map<string, QuestRoom> = new Map()
 
 export function addRoom(room:MainRoom){
     mainRooms.set(room.roomId, room)
@@ -31,4 +32,12 @@ export function addBlitzRoom(room:BlitzRoom){
 
 export function removeBlitzRoom(room:BlitzRoom){
     blitzRooms.delete(room.roomId)
+}
+
+export function addQuestRoom(room:QuestRoom){
+    questRooms.set(room.roomId, room)
+}
+
+export function removeQuestRoom(room:QuestRoom){
+    questRooms.delete(room.roomId)
 }
