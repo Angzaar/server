@@ -4,10 +4,8 @@ import { ephemeralCodes, QuestRoom } from "./QuestRoom";
 import { getCache } from "../../utils/cache";
 import { PROFILES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY, REWARDS_CACHE_KEY } from "../../utils/initializer";
 import { StepDefinition } from "./utils/types";
-import { getRandomString } from "../../utils/questing";
 import { questRooms } from "../../rooms";
-import { convertLegacyQuest, isLegacyQuest, sanitizeUserQuestData, syncQuestToCache } from "./utils/functions";
-import { v4 } from "uuid";
+import { isLegacyQuest, sanitizeUserQuestData, syncQuestToCache } from "./utils/functions";
 import { forceEndQuestForAll } from "./QuestCreatorHandlers";
 
 
@@ -263,7 +261,7 @@ export async function handleQuestAction(room:QuestRoom, client: Client, payload:
       });
     
       // === NEW: If it's a one-shot quest with max 1 completion, disable it for everyone ===
-      if (room.questDefinition.completionMode === 'FINITE' && room.questDefinition.maxCompletions === 1) {
+      if (room.questDefinition.completionMode === 'ONE_SHOT_GLOBAL') {
         console.log(`[QuestRoom] One-shot quest completed => disabling quest="${questId}"`);
         // 2) Mark quest as disabled so new attempts are blocked
         room.questDefinition.enabled = false;
@@ -423,7 +421,8 @@ export function handleForceCompleteTask(room:QuestRoom, client: Client, message:
     
     console.log(`[QuestRoom] handleForceCompleteTask: questId=${questId}, stepId=${stepId}, taskId=${taskId}, userId=${userId}`);
     
-    const quest:QuestDefinition = getCache(QUEST_TEMPLATES_CACHE_KEY).find((q: any) => q.questId === questId);
+    const quests:QuestDefinition[] = getCache(QUEST_TEMPLATES_CACHE_KEY)
+    const quest = quests.find((q: QuestDefinition) => q.questId === questId);
     if(!quest){
     console.log("Quest not found")
     client.send("QUEST_ERROR", { message: `Quest ${questId} not found` });
@@ -534,7 +533,7 @@ export function handleForceCompleteTask(room:QuestRoom, client: Client, message:
     });
     
     // 14. Find the target user's client in any QuestRoom instance and notify them
-    const { questRooms } = require('./index');
+
     for (const [roomId, roomInstance] of questRooms.entries()) {
     if (roomInstance.state.questId === questId) {
         // Found a room for this quest, now find the client
@@ -564,7 +563,7 @@ export function handleForceCompleteTask(room:QuestRoom, client: Client, message:
             stepId, 
             taskId, 
             taskName: taskDef.description,
-            userQuestInfo: roomInstance.sanitizeUserQuestData(userQuestInfo),
+            userQuestInfo: sanitizeUserQuestData(roomInstance, userQuestInfo),
             forcedByAdmin: true,
             reward: rewardData
             });
@@ -574,7 +573,7 @@ export function handleForceCompleteTask(room:QuestRoom, client: Client, message:
             c.send("STEP_COMPLETE", { 
                 questId, 
                 stepId,
-                userQuestInfo: roomInstance.sanitizeUserQuestData(userQuestInfo),
+                userQuestInfo: sanitizeUserQuestData(roomInstance, userQuestInfo),
                 forcedByAdmin: true
             });
             }
@@ -583,7 +582,7 @@ export function handleForceCompleteTask(room:QuestRoom, client: Client, message:
             if (allStepsDone) {
             c.send("QUEST_COMPLETE", { 
                 questId, 
-                userQuestInfo: roomInstance.sanitizeUserQuestData(userQuestInfo),
+                userQuestInfo: sanitizeUserQuestData(roomInstance, userQuestInfo),
                 forcedByAdmin: true
             });
             }
@@ -641,14 +640,16 @@ export function loadQuest(room:QuestRoom, questId: string) {
 
   room.state.questId = questId;
   
-  // Handle quest format conversion if needed
-  if (isLegacyQuest(quest)) {
-    room.questDefinition = convertLegacyQuest(quest);
-    console.log(`Converted legacy quest "${questId}" (${quest.questType}) to new format (${room.questDefinition.completionMode})`);
-  } else {
-    room.questDefinition = quest as QuestDefinition;
-    console.log(`Loaded quest "${questId}" in new format`);
-  }
+//   // Handle quest format conversion if needed
+//   if (isLegacyQuest(quest)) {
+//     room.questDefinition = convertLegacyQuest(quest);
+//     console.log(`Converted legacy quest "${questId}" (${quest.questType}) to new format (${room.questDefinition.completionMode})`);
+//   } else {
+//     room.questDefinition = quest as QuestDefinition;
+//     console.log(`Loaded quest "${questId}" in new format`);
+//   }
+
+  room.questDefinition = quest as QuestDefinition;
   
   return true;
 }

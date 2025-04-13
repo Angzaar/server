@@ -50,7 +50,7 @@ export interface EphemeralCodeData {
   /* ─────────────────────────────────────────────
      2.  Enum helpers for the new quest flags
      ──────────────────────────────────────────── */
-     export type CompletionMode      = 'FINITE' | 'REPEATABLE';
+     export type CompletionMode      = 'FINITE' | 'REPEATABLE' | 'ONE_SHOT_GLOBAL';
      export type ParticipationScope  = 'SOLO' | 'PARTY' | 'GUILD' | 'GLOBAL';
      export type ProgressSharing     = 'INDIVIDUAL' | 'SHARED' | 'POOLED';
      export type RewardDistribution  = 'PER_PLAYER' | 'SPLIT_EVENLY' | 'RANKED';

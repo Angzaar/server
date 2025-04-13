@@ -9,7 +9,6 @@ import { ArtRoom } from "./rooms/ArtRoom";
 import { router } from "./router";
 import { LotteryRoom } from "./rooms/LotteryRoom";
 import { AdminRoom } from "./rooms/AdminRoom";
-import { ReservationRoom } from "./rooms/ReservationRoom";
 import { BlitzRoom } from "./rooms/BlitzRoom";
 import { TronRoom } from "./components/arcade/TronState";
 import { FlightRoom } from "./rooms/FlightRoom";

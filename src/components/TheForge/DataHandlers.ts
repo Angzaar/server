@@ -138,7 +138,9 @@ export function handleQuestStats(room:QuestRoom, client: Client, payload: any) {
         version: quest.version,
         steps: quest.steps.map((step: StepDefinition) => ({
         name: step.name,
+        stepId:step.stepId,
         tasks: step.tasks.map((task: TaskDefinition) => ({
+            taskId: task.taskId,
             description: task.description,
             requiredCount: task.requiredCount,
             metaverse: task.metaverse

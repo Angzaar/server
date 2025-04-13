@@ -188,9 +188,9 @@ export function forceEndQuestForAll(room:QuestRoom, questId: string, version: nu
     );
     if (!userQuestInfo) continue;
 
-    if (!userQuestInfo.completed) {
-        userQuestInfo.completed = true;
-    }
+    // if (!userQuestInfo.completed) {
+    //     userQuestInfo.completed = true;
+    // }
     }
 
     room.broadcast("QUEST_ENDED", { questId, endedBy: room.questDefinition.creator });

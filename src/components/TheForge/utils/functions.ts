@@ -15,33 +15,13 @@ export function syncQuestToCache(questId: string, questDefinition: QuestDefiniti
   }
 }
 
-// Helper function to convert legacy quest to new format
-export function convertLegacyQuest(legacy: LegacyQuestDefinition): QuestDefinition {
-  const newQuest: QuestDefinition = {
-    questId: legacy.questId,
-    version: legacy.version,
-    enabled: legacy.enabled,
-    startTrigger: legacy.startTrigger,
-    title: legacy.title,
-    startTime: legacy.startTime,
-    endTime: legacy.endTime,
-    creator: legacy.creator,
-    steps: legacy.steps,
-    completionMode: legacy.questType === 'OPEN_ENDED' ? 'REPEATABLE' : 'FINITE',
-    maxCompletions: legacy.questType === 'OPEN_ENDED' ? INFINITE : 1
-  };
-  
-  return newQuest;
-}
-
 // Helper function to check if quest is legacy format
 export function isLegacyQuest(quest: any): quest is LegacyQuestDefinition {
   return quest && typeof quest.questType === 'string';
 }
 
 /**
-import { QuestDefinition } from "./types";
- * Convert a legacy quest to new format
+ * Convert a legacy quest to new format, ensuring all new fields have appropriate defaults
  */
 export function convertQuest(oldQuest: LegacyQuestDefinition): QuestDefinition {
     // Map questType to completionMode
@@ -51,10 +31,14 @@ export function convertQuest(oldQuest: LegacyQuestDefinition): QuestDefinition {
     if (oldQuest.questType === 'OPEN_ENDED') {
       completionMode = 'REPEATABLE';
       maxCompletions = INFINITE;
+    } else if (oldQuest.questType === 'ONE_SHOT') {
+      completionMode = 'ONE_SHOT_GLOBAL';
+      maxCompletions = 1;
     }
     
-    // Create the new quest object
+    // Create the new quest object with all required fields and optional fields with defaults
     const newQuest: QuestDefinition = {
+      // Basic identity & lifecycle (carry over from old quest)
       questId: oldQuest.questId,
       version: oldQuest.version + 1, // Increment version for migration
       enabled: oldQuest.enabled,
@@ -64,14 +48,28 @@ export function convertQuest(oldQuest: LegacyQuestDefinition): QuestDefinition {
       endTime: oldQuest.endTime,
       creator: oldQuest.creator,
       steps: oldQuest.steps,
+      
+      // Behavior flags
       completionMode,
       maxCompletions,
-      // Add default values for new fields
+      // timeWindow is optional, leaving undefined
+      autoReset: false,
+      
+      // Multiplayer settings
       participationScope: 'SOLO',
       progressSharing: 'INDIVIDUAL',
       rewardDistribution: 'PER_PLAYER',
-      autoReset: false
+      
+      // Scoring & rewards (optional)
+      // scoringRule: undefined,
+      // rewardTable: undefined
     };
+    
+    // Add allowReplay from legacy if it exists (not part of new schema but might be useful for reference)
+    if (oldQuest.allowReplay !== undefined) {
+      // Could log or handle this differently if needed
+      console.log(`Note: Quest ${oldQuest.questId} had allowReplay=${oldQuest.allowReplay}, mapped to completionMode=${completionMode}`);
+    }
     
     return newQuest;
   }
@@ -91,11 +89,11 @@ export function convertQuest(oldQuest: LegacyQuestDefinition): QuestDefinition {
       const quest = quests[i];
       
       // Only migrate quests that have the old questType property
-      if ('questType' in quest) {
+      if (isLegacyQuest(quest)) {
         console.log(`Migrating quest "${quest.questId}" (${quest.title})...`);
         
         // Convert to new format
-        const newQuest = convertQuest(quest as any);
+        const newQuest = convertQuest(quest);
         
         // Replace in the array
         quests[i] = newQuest;

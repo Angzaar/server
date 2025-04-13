@@ -2,7 +2,7 @@ import { Room } from "colyseus";
 import { MainRoom } from "./MainRoom";
 import { ArtRoom } from "./ArtRoom";
 import { BlitzRoom } from "./BlitzRoom";
-import { QuestRoom } from "./QuestRoom";
+import { QuestRoom } from "../components/TheForge/QuestRoom";
 
 export let mainRooms:Map<string, MainRoom> = new Map()
 export let artGalleryRooms:Map<string, ArtRoom> = new Map()
