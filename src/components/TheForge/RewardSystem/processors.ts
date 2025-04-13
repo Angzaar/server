@@ -182,22 +182,33 @@ export async function distributeDecentralandItemReward(reward: RewardEntry): Pro
 export async function distributeDecentralandReward(reward: RewardEntry): Promise<boolean> {
   const { rewardData, userEthAddress } = reward;
   
-  if (!userEthAddress) {
-    console.error(`[RewardSystem] Missing user ETH address for DECENTRALAND_REWARD`);
+  if (!userEthAddress || !rewardData.decentralandReward?.campaignKey) {
+    console.error(`[RewardSystem] Missing user ETH address or campaign key for DECENTRALAND_REWARD`);
     return false;
   }
   
   try {
     console.log(`[RewardSystem] Distributing Decentraland reward: ${rewardData.name} (type: ${rewardData.decentralandReward?.type}) to ${userEthAddress}`);
+
+    const request = await fetch('https://rewards.decentraland.org/api/rewards', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        campaign_key: rewardData.decentralandReward?.campaignKey,
+        beneficiary: userEthAddress,
+      }),
+    })
     
-    // In a real implementation, you would:
-    // 1. Connect to the Decentraland rewards API or service
-    // 2. Issue the appropriate reward to the user based on the type
-    // 3. Verify the reward was successfully granted
-    // 4. Record the transaction details
-    
-    // For this example, we'll just simulate success
-    return true;
+    const response = await request.json()
+    if(response.ok){
+      console.log(`[RewardSystem] Decentraland reward distributed successfully: ${response.message}`);
+      return true;
+    }else{
+      console.error(`[RewardSystem] Error distributing Decentraland reward: ${response.error}`);
+      return false;
+    }
   } catch (error) {
     console.error(`[RewardSystem] Error distributing Decentraland reward: ${error}`);
     return false;

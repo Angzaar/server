@@ -106,5 +106,50 @@
     },
     "createdAt": "2025-04-13T03:54:16.142Z",
     "updatedAt": "2025-04-13T03:54:16.142Z"
+  },
+  {
+    "id": "d2c642d1-f2ea-4ade-bf14-9f3476bb7500",
+    "creator": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "name": "Easter Egg T Shirt",
+    "description": "",
+    "kind": "DECENTRALAND_REWARD",
+    "media": {
+      "image": "",
+      "video": ""
+    },
+    "web2": {
+      "sku": "",
+      "fulfillment": "DIGITAL_CODE",
+      "quantity": 1,
+      "redemptionInstructions": ""
+    },
+    "decentralandItem": {
+      "itemId": "",
+      "assetContractAddress": "",
+      "tokenId": "",
+      "quantity": 1,
+      "rarity": "common",
+      "category": "wearable",
+      "campaignKey": ""
+    },
+    "decentralandReward": {
+      "campaignKey": "qsakdfjas;kfja;sdf"
+    },
+    "allowExternalCreators": false,
+    "listing": {
+      "listed": false,
+      "marketplaceId": "",
+      "price": {
+        "amount": "0",
+        "currency": {
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "chainId": 1
+      },
+      "quantity": 95
+    },
+    "createdAt": "2025-04-13T21:44:52.990Z",
+    "updatedAt": "2025-04-13T21:44:52.991Z"
   }
 ]

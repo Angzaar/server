@@ -708,5 +708,37 @@
     "progressSharing": "INDIVIDUAL",
     "rewardDistribution": "PER_PLAYER",
     "autoReset": false
+  },
+  {
+    "questId": "3cfWOx",
+    "version": 1,
+    "enabled": false,
+    "startTrigger": "FIRST_TASK",
+    "title": "Easter Shirt ",
+    "creator": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "steps": [
+      {
+        "stepId": "ZyhyYl",
+        "name": "Collect Shirt",
+        "prerequisiteStepIds": [],
+        "rewardIds": [
+          "a962ecc6-d41c-47ab-9304-06b1c79615c1"
+        ],
+        "tasks": [
+          {
+            "taskId": "6kiPr",
+            "description": "Collect Shirt",
+            "requiredCount": 1,
+            "metaverse": "DECENTRALAND",
+            "prerequisiteTaskIds": [],
+            "rewardIds": [
+              "d2c642d1-f2ea-4ade-bf14-9f3476bb7500"
+            ]
+          }
+        ]
+      }
+    ],
+    "completionMode": "FINITE",
+    "maxCompletions": 1
   }
 ]
