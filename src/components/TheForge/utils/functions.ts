@@ -4,7 +4,13 @@ import { updateCache } from "../../../utils/cache";
 import { QUEST_TEMPLATES_CACHE_KEY, QUEST_TEMPLATES_FILE, REWARDS_CACHE_KEY } from "../../../utils/initializer";
 import { QuestDefinition } from "./types";
 import { QuestRoom } from "../QuestRoom";
-import { processReward } from "../RewardSystem";
+import { 
+  processReward, 
+  processRewardById, 
+  createRewardData, 
+  processMultipleRewardsByIds,
+  getNormalizedRewardIds 
+} from "../RewardSystem";
 
 // Helper function to sync quest changes to cache
 export function syncQuestToCache(questId: string, questDefinition: QuestDefinition) {
@@ -37,6 +43,20 @@ export function convertQuest(oldQuest: LegacyQuestDefinition): QuestDefinition {
       maxCompletions = 1;
     }
     
+    // Preserve any task and step rewards that might exist in the legacy quest
+    let steps = oldQuest.steps;
+    
+    // Check if we need to fix rewardId properties to maintain compatibility
+    if (Array.isArray(steps)) {
+      steps = steps.map(step => {
+        // Handle possible step rewards from legacy quests (if any existed)
+        return {
+          ...step,
+          // Other properties would remain untouched
+        };
+      });
+    }
+    
     // Create the new quest object with all required fields and optional fields with defaults
     const newQuest: QuestDefinition = {
       // Basic identity & lifecycle (carry over from old quest)
@@ -48,7 +68,7 @@ export function convertQuest(oldQuest: LegacyQuestDefinition): QuestDefinition {
       startTime: oldQuest.startTime,
       endTime: oldQuest.endTime,
       creator: oldQuest.creator,
-      steps: oldQuest.steps,
+      steps,
       
       // Behavior flags
       completionMode,
@@ -63,7 +83,8 @@ export function convertQuest(oldQuest: LegacyQuestDefinition): QuestDefinition {
       
       // Scoring & rewards (optional)
       // scoringRule: undefined,
-      // rewardTable: undefined
+      // rewardTable: undefined,
+      // rewardId: undefined (no direct conversion from legacy format)
     };
     
     // Add allowReplay from legacy if it exists (not part of new schema but might be useful for reference)
@@ -314,89 +335,88 @@ export function processTaskCompletion(room: QuestRoom, questId: string, stepId: 
   
   // 1. Task completion reward
   let taskRewardData = null;
-  if (!previousTaskState && userTask.completed && taskDef.rewardId) {
-    const rewards = getCache(REWARDS_CACHE_KEY);
-    const reward = rewards.find((r: any) => r.id === taskDef.rewardId);
-    if (reward) {
-      taskRewardData = {
-        id: reward.id,
-        name: reward.name,
-        kind: reward.kind,
-        description: reward.description,
-        media: reward.media
-      };
-      processReward(room, questId, stepId, taskId, {
+  if (!previousTaskState && userTask.completed) {
+    // Get normalized array of task reward IDs
+    const taskRewardIds = getNormalizedRewardIds(taskDef);
+    
+    if (taskRewardIds.length > 0) {
+      // If we need to return reward data for the first reward (for backward compatibility)
+      taskRewardData = createRewardData(taskRewardIds[0]);
+      
+      // Process all rewards
+      processMultipleRewardsByIds(room, questId, stepId, taskId, {
         ...userQuestInfo,
         userId: userQuestInfo.userId || userQuestInfo.ethAddress,
         userEthAddress: userQuestInfo.ethAddress
-      }, taskRewardData);
+      }, taskRewardIds);
     }
   }
   
-  // 2. Step completion reward - scan for task rewards in this step
+  // 2. Step completion reward
   if (!previousStepState && userStep.completed) {
-    // Since there's no requiresStepCompletion property, we'll use a different approach
-    // For example, we could use a naming convention in the task description or 
-    // treat the last task in the step as the step reward
+    // Get normalized array of step reward IDs
+    const stepRewardIds = getNormalizedRewardIds(stepDef);
     
-    // Option 1: Use the last task with a reward in the step
-    const tasksWithRewards = stepDef.tasks.filter(task => task.rewardId);
-    const lastRewardTask = tasksWithRewards.length > 0 ? tasksWithRewards[tasksWithRewards.length - 1] : null;
-    
-    // Option 2: Look for tasks with a specific pattern in the description
-    // const taskWithStepReward = stepDef.tasks.find(task => 
-    //  task.rewardId && task.description.toLowerCase().includes('[step reward]')
-    // );
-    
-    if (lastRewardTask) {
-      const rewards = getCache(REWARDS_CACHE_KEY);
-      const reward = rewards.find((r: any) => r.id === lastRewardTask.rewardId);
-      if (reward) {
-        const stepRewardData = {
-          id: reward.id,
-          name: reward.name,
-          kind: reward.kind,
-          description: reward.description,
-          media: reward.media
-        };
-        processReward(room, questId, stepId, '', {
-          ...userQuestInfo,
-          userId: userQuestInfo.userId || userQuestInfo.ethAddress,
-          userEthAddress: userQuestInfo.ethAddress
-        }, stepRewardData);
+    if (stepRewardIds.length > 0) {
+      // Process all step rewards
+      processMultipleRewardsByIds(room, questId, stepId, '', {
+        ...userQuestInfo,
+        userId: userQuestInfo.userId || userQuestInfo.ethAddress,
+        userEthAddress: userQuestInfo.ethAddress
+      }, stepRewardIds);
+    }
+    // Fallback to the old method of looking for task rewards if no direct step rewards
+    else {
+      // Use the last task with a reward in the step as a fallback
+      const tasksWithRewards = stepDef.tasks.filter(task => getNormalizedRewardIds(task).length > 0);
+      const lastRewardTask = tasksWithRewards.length > 0 ? tasksWithRewards[tasksWithRewards.length - 1] : null;
+      
+      if (lastRewardTask) {
+        const lastTaskRewardIds = getNormalizedRewardIds(lastRewardTask);
+        
+        if (lastTaskRewardIds.length > 0) {
+          processMultipleRewardsByIds(room, questId, stepId, '', {
+            ...userQuestInfo,
+            userId: userQuestInfo.userId || userQuestInfo.ethAddress,
+            userEthAddress: userQuestInfo.ethAddress
+          }, lastTaskRewardIds);
+        }
       }
     }
   }
   
   // 3. Quest completion reward
   if (!previousQuestState && userQuestInfo.completed) {
-    // Check if there's a reward specified in the quest rewardTable or via assignedTo
-    if (room.questDefinition.rewardTable) {
-      const rewards = getCache(REWARDS_CACHE_KEY);
-      // First try to find a reward explicitly assigned to this quest
-      let reward = rewards.find((r: any) => 
+    // Get combined reward IDs from all sources
+    let questRewardIds: string[] = [];
+    
+    // First check for direct rewardIds/rewardId on the quest (highest priority)
+    questRewardIds = getNormalizedRewardIds(room.questDefinition);
+    
+    // If no direct rewards, check rewardTable 
+    if (questRewardIds.length === 0 && room.questDefinition.rewardTable) {
+      questRewardIds.push(room.questDefinition.rewardTable);
+    }
+    
+    // If still no rewards, look for rewards assigned to this quest
+    if (questRewardIds.length === 0) {
+      const rewards = getCache(REWARDS_CACHE_KEY) as Array<{ id: string, assignedTo?: { questId: string, taskId?: string } }>;
+      const assignedRewards = rewards.filter((r) => 
         r.assignedTo && r.assignedTo.questId === questId && !r.assignedTo.taskId
       );
       
-      // If not found, try using the rewardTable as the reward ID
-      if (!reward) {
-        reward = rewards.find((r: any) => r.id === room.questDefinition.rewardTable);
+      if (assignedRewards.length > 0) {
+        questRewardIds = assignedRewards.map((r) => r.id);
       }
-      
-      if (reward) {
-        const questRewardData = {
-          id: reward.id,
-          name: reward.name,
-          kind: reward.kind,
-          description: reward.description,
-          media: reward.media
-        };
-        processReward(room, questId, '', '', {
-          ...userQuestInfo,
-          userId: userQuestInfo.userId || userQuestInfo.ethAddress,
-          userEthAddress: userQuestInfo.ethAddress
-        }, questRewardData);
-      }
+    }
+    
+    // Process all quest completion rewards if any were found
+    if (questRewardIds.length > 0) {
+      processMultipleRewardsByIds(room, questId, '', '', {
+        ...userQuestInfo,
+        userId: userQuestInfo.userId || userQuestInfo.ethAddress,
+        userEthAddress: userQuestInfo.ethAddress
+      }, questRewardIds);
     }
   }
   

@@ -1,4 +1,3 @@
-
 export // Old quest format interface
 interface LegacyQuestDefinition {
   questId: string;
@@ -26,7 +25,8 @@ export interface EphemeralCodeData {
     description: string;
     metaverse: 'DECENTRALAND' | 'HYPERFY';
     prerequisiteTaskIds: string[];
-    rewardId?: string; // Optional ID of a reward to grant when task is completed
+    rewardId?: string; // Deprecated - use rewardIds instead
+    rewardIds?: string[]; // Array of reward IDs to grant when task is completed
   }
   
   export interface StepDefinition {
@@ -44,6 +44,19 @@ export interface EphemeralCodeData {
      * - If it has multiple => you need multiple steps done first.
      */
     prerequisiteStepIds?: string[];
+    
+    /**
+     * Optional reward given when the entire step is completed
+     * Independent from any individual task rewards
+     * @deprecated Use rewardIds instead
+     */
+    rewardId?: string;
+    
+    /**
+     * Array of reward IDs given when the entire step is completed
+     * Independent from any individual task rewards
+     */
+    rewardIds?: string[];
   }
   
   
@@ -86,6 +99,8 @@ export interface EphemeralCodeData {
       /* NEW — scoring & rewards */
       scoringRule?: string;              // short script e.g. "score += eggsCollected"
       rewardTable?: string;              // id of ranked/flat reward schema
+      rewardId?: string;                 // direct reward ID for quest completion (deprecated)
+      rewardIds?: string[];              // array of reward IDs for quest completion
     
       /* content */
       steps: StepDefinition[];
