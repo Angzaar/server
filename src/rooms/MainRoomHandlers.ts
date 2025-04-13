@@ -131,7 +131,8 @@ export const validateAndCreateProfile = async (
       profile.name = client.userData.name
     }else{
       try{
-        let data:any = await fetch(`${options.realm}/lambdas/profiles/${options.userId}`)
+        // let data:any = await fetch(`${options.realm}/lambdas/profiles/${options.userId}`)
+        let data:any = await fetch(`https://realm-provider.decentraland.org/lambdas/profiles/${options.userId}`)
         let profileData = await data.json()
         // console.log('profile data is', profileData)
         if(profileData.error){
@@ -143,15 +144,15 @@ export const validateAndCreateProfile = async (
         profile.web3 = profileData.avatars[0].hasConnectedWeb3
         profile.name = profileData.avatars[0].name
   
-        let comms:any = await fetch(`${options.realm}/comms/peers`)
-        let commsData = await comms.json()
-        if(commsData.ok){
-          if(!commsData.peers.find((data:any)=> data.address === client.userData.userId.toLowerCase())){
-            throw new Error("User not found on realm server")
-          }
-        }else{
-          throw new Error("Error fetching realm peer status")
-        }
+        // let comms:any = await fetch(`${options.realm}/comms/peers`)
+        // let commsData = await comms.json()
+        // if(commsData.ok){
+        //   if(!commsData.peers.find((data:any)=> data.address === client.userData.userId.toLowerCase())){
+        //     throw new Error("User not found on realm server")
+        //   }
+        // }else{
+        //   throw new Error("Error fetching realm peer status")
+        // }
       }
       catch(e:any){
         console.log('error fetching remote profile, trying different realm provider', e)

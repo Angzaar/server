@@ -7,13 +7,15 @@ import {
   QUEST_TEMPLATES_CACHE_KEY, 
   QUEST_TEMPLATES_FILE,
   VERSES_CACHE_KEY, 
-  VERSES_FILE 
+  VERSES_FILE,
+  REWARDS_CACHE_KEY
 } from "../utils/initializer";
 import { v4 } from "uuid";
 import { validateAndCreateProfile } from "./MainRoomHandlers";
 import { getRandomString } from "../utils/questing";
 import { addQuestRoom, removeQuestRoom, questRooms } from ".";
 import { BasePlayerState } from "../components/BasePlayerState";
+import { Reward, handleCreateReward, handleDeleteReward } from "../components/TheForge/Rewards";
 // Helper function to sync quest changes to cache
 function syncQuestToCache(questId: string, questDefinition: QuestDefinition) {
   const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
@@ -35,6 +37,7 @@ export interface TaskDefinition {
   description: string;
   metaverse: 'DECENTRALAND' | 'HYPERFY';
   prerequisiteTaskIds: string[];
+  rewardId?: string; // Optional ID of a reward to grant when task is completed
 }
 
 export interface StepDefinition {
@@ -54,19 +57,88 @@ export interface StepDefinition {
   prerequisiteStepIds?: string[];
 }
 
-export interface QuestDefinition {
+
+/* ─────────────────────────────────────────────
+   2.  Enum helpers for the new quest flags
+   ──────────────────────────────────────────── */
+   export type CompletionMode      = 'FINITE' | 'REPEATABLE';
+   export type ParticipationScope  = 'SOLO' | 'PARTY' | 'GUILD' | 'GLOBAL';
+   export type ProgressSharing     = 'INDIVIDUAL' | 'SHARED' | 'POOLED';
+   export type RewardDistribution  = 'PER_PLAYER' | 'SPLIT_EVENLY' | 'RANKED';
+   
+   /* Optional syntactic sugar so callers don't have to remember magic numbers. */
+   export const INFINITE = Number.POSITIVE_INFINITY;
+
+/* ─────────────────────────────────────────────
+   3.  QuestDefinition v2
+   ──────────────────────────────────────────── */
+   export interface QuestDefinition {
+    /* identity & lifecycle */
     questId: string;
     version: number;
-    enabled:boolean,
-    questType: 'LINEAR' | 'OPEN_ENDED' | 'ONE_SHOT'; 
+    enabled: boolean;
     startTrigger: 'EXPLICIT' | 'FIRST_TASK';
     title: string;
-    startTime?: number;        // Unix timestamp in ms
-    endTime?: number;          // Unix timestamp in ms
-    allowReplay?: boolean;
-    creator: string;   // e.g. an ethAddress
-    // The new field:
-    steps: StepDefinition[];        // array of steps in the quest
+    startTime?: number;            // Unix ms
+    endTime?: number;              // Unix ms
+    creator: string;               // e.g. ethAddress
+  
+    /* NEW — behaviour flags */
+    completionMode: CompletionMode;   // FINITE | REPEATABLE
+    maxCompletions?: number;          // 1 (default) | N | INFINITE
+    timeWindow?: string;              // "daily" | "weekly" | "YYYY‑MM‑DD/YYYY‑MM‑DD"
+    autoReset?: boolean;              // wipe progress at end‑of‑window
+  
+    /* NEW — multiplayer knobs */
+    participationScope?: ParticipationScope;  // default: SOLO
+    progressSharing?: ProgressSharing;        // default: INDIVIDUAL
+    rewardDistribution?: RewardDistribution;  // default: PER_PLAYER
+  
+    /* NEW — scoring & rewards */
+    scoringRule?: string;              // short script e.g. "score += eggsCollected"
+    rewardTable?: string;              // id of ranked/flat reward schema
+  
+    /* content */
+    steps: StepDefinition[];
+  }
+
+// Legacy interfaces for backward compatibility
+interface LegacyQuestDefinition {
+  questId: string;
+  version: number;
+  enabled: boolean;
+  questType: 'LINEAR' | 'OPEN_ENDED' | 'ONE_SHOT';
+  startTrigger: 'EXPLICIT' | 'FIRST_TASK';
+  title: string;
+  startTime?: number;
+  endTime?: number;
+  allowReplay?: boolean;
+  creator: string;
+  steps: StepDefinition[];
+}
+
+// Helper function to convert legacy quest to new format
+function convertLegacyQuest(legacy: LegacyQuestDefinition): QuestDefinition {
+  const newQuest: QuestDefinition = {
+    questId: legacy.questId,
+    version: legacy.version,
+    enabled: legacy.enabled,
+    startTrigger: legacy.startTrigger,
+    title: legacy.title,
+    startTime: legacy.startTime,
+    endTime: legacy.endTime,
+    creator: legacy.creator,
+    steps: legacy.steps,
+    completionMode: legacy.questType === 'OPEN_ENDED' ? 'REPEATABLE' : 'FINITE',
+    maxCompletions: legacy.questType === 'OPEN_ENDED' ? INFINITE : 1
+  };
+  
+  return newQuest;
+}
+
+// Helper function to check if quest is legacy format
+function isLegacyQuest(quest: any): quest is LegacyQuestDefinition {
+  return quest && typeof quest.questType === 'string';
 }
 
 export const ephemeralCodes: Record<string, EphemeralCodeData> = {};
@@ -149,6 +221,12 @@ export class QuestRoom extends Room<QuestState> {
 
     this.onMessage("QUEST_CREATOR", this.handleCreateQuest.bind(this));
     this.onMessage("QUEST_DELETE", this.handleResetQuest.bind(this));
+    this.onMessage("REWARD_CREATE", (client: Client, message: any) =>
+      handleCreateReward(client, message)
+    );
+    this.onMessage("REWARD_DELETE", (client: Client, message: any) =>
+      handleDeleteReward(client, message)
+    );
   }
 
   onJoin(client: Client, options: any) {
@@ -157,9 +235,11 @@ export class QuestRoom extends Room<QuestState> {
     if(options.questId === "creator"){
       let quests = getCache(QUEST_TEMPLATES_CACHE_KEY)
       let verses = getCache(VERSES_CACHE_KEY)
+      let rewards = getCache(REWARDS_CACHE_KEY)
       client.send("QUEST_CREATOR", {
         quests: quests.filter((q:any) => q.creator === client.userData.userId),
-        verses: verses.filter((v:any) => v.creator === client.userData.userId)
+        verses: verses.filter((v:any) => v.creator === client.userData.userId),
+        rewards: rewards.filter((r:any) => r.creator === client.userData.userId)
       })
       return
     }
@@ -266,7 +346,8 @@ export class QuestRoom extends Room<QuestState> {
       // Add quest template for complete structure
       template: {
         title: this.questDefinition.title,
-        questType: this.questDefinition.questType,
+        completionMode: this.questDefinition.completionMode,
+        maxCompletions: this.questDefinition.maxCompletions,
         steps: this.questDefinition.steps.map(step => ({
           name: step.name || '',
           tasks: step.tasks.map(task => ({
@@ -290,9 +371,17 @@ export class QuestRoom extends Room<QuestState> {
     }
 
     this.state.questId = questId;
-    this.questDefinition = quest;
-
-    console.log(`Loaded quest "${questId}" allowReplay=${this.questDefinition.allowReplay}`);
+    
+    // Handle quest format conversion if needed
+    if (isLegacyQuest(quest)) {
+      this.questDefinition = convertLegacyQuest(quest);
+      console.log(`Converted legacy quest "${questId}" (${quest.questType}) to new format (${this.questDefinition.completionMode})`);
+    } else {
+      this.questDefinition = quest as QuestDefinition;
+      console.log(`Loaded quest "${questId}" in new format`);
+    }
+    
+    return true;
   }
 
   onLeave(client: Client, consented: boolean) {
@@ -378,7 +467,7 @@ async handleQuestAction(client: Client, payload: any) {
     if (!userQuestInfo) return;
   }
 
-  if(userQuestInfo.completed && !this.questDefinition.allowReplay){
+  if(userQuestInfo.completed && this.questDefinition.completionMode === 'FINITE' && this.questDefinition.maxCompletions === 1){
     client.send("QUEST_ERROR", { message: "Quest already completed." });
     return;
   }
@@ -486,7 +575,31 @@ async handleQuestAction(client: Client, payload: any) {
 
   if(userTask.count >= taskDef.requiredCount){
     userTask.completed = true
-    client.send("TASK_COMPLETE", {questId, stepId, taskId, taskName:taskDef.description, userQuestInfo: this.sanitizeUserQuestData(userQuestInfo)})
+    
+    // Get reward information if task has a rewardId
+    let rewardData = null;
+    if (taskDef.rewardId) {
+      const rewards = getCache(REWARDS_CACHE_KEY);
+      const reward = rewards.find((r: any) => r.id === taskDef.rewardId);
+      if (reward) {
+        rewardData = {
+          id: reward.id,
+          name: reward.name,
+          kind: reward.kind,
+          description: reward.description,
+          media: reward.media
+        };
+      }
+    }
+    
+    client.send("TASK_COMPLETE", {
+      questId, 
+      stepId, 
+      taskId, 
+      taskName: taskDef.description, 
+      userQuestInfo: this.sanitizeUserQuestData(userQuestInfo),
+      reward: rewardData
+    });
     
     // Notify creator rooms
     this.notifyCreatorRooms("TASK_COMPLETED_BY_USER", {
@@ -495,7 +608,8 @@ async handleQuestAction(client: Client, payload: any) {
       taskId,
       taskName: taskDef.description,
       userId: client.userData.userId,
-      userName: profile.name || client.userData.userId
+      userName: profile.name || client.userData.userId,
+      rewardGranted: rewardData ? rewardData.name : null
     });
   }
 
@@ -545,9 +659,9 @@ async handleQuestAction(client: Client, payload: any) {
       elapsedTime: userQuestInfo.elapsedTime
     });
   
-    // === NEW: If it's a ONE_SHOT quest, disable it for everyone ===
-    if (this.questDefinition.questType === "ONE_SHOT") {
-      console.log(`[QuestRoom] ONE_SHOT quest completed => disabling quest="${questId}"`);
+    // === NEW: If it's a one-shot quest with max 1 completion, disable it for everyone ===
+    if (this.questDefinition.completionMode === 'FINITE' && this.questDefinition.maxCompletions === 1) {
+      console.log(`[QuestRoom] One-shot quest completed => disabling quest="${questId}"`);
       // 2) Mark quest as disabled so new attempts are blocked
       this.questDefinition.enabled = false;
 
@@ -557,7 +671,7 @@ async handleQuestAction(client: Client, payload: any) {
       this.forceEndQuestForAll(questId, this.questDefinition.version);
   
       // 3) Broadcast that the quest was disabled
-      this.broadcast("QUEST_DISABLED", { questId, reason: "ONE_SHOT completed" });
+      this.broadcast("QUEST_DISABLED", { questId, reason: "One-shot completed" });
     }
   }
 }
@@ -661,8 +775,8 @@ async handleStartQuest(client: Client, payload: any, autoStart = false) {
    */
   private handleCreateQuest(client: Client, payload: any) {
     const { questType, enabled, steps, title, startTime, endTime } = payload;
-    if (!questType || !steps) {
-      client.send("QUEST_ERROR", { message: "Missing required fields (questType, steps)." });
+    if (!steps) {
+      client.send("QUEST_ERROR", { message: "Missing required fields (steps)." });
       return;
     }
 
@@ -675,18 +789,27 @@ async handleStartQuest(client: Client, payload: any, autoStart = false) {
       return;
     }
 
+    // Convert to new format
+    let completionMode: CompletionMode = 'FINITE';
+    let maxCompletions = 1;
+    
+    if (payload.questType === 'OPEN_ENDED') {
+      completionMode = 'REPEATABLE';
+      maxCompletions = INFINITE;
+    }
+
     const newQuest: QuestDefinition = {
       questId,
       version: 1, 
       enabled: enabled,
-      questType,
       startTrigger: payload.startTrigger ?? 'EXPLICIT',
       title: title ?? "Untitled Quest",
-      allowReplay: payload.allowReplay ?? false,
       creator: client.userData.userId,
       steps: steps || [],
       startTime,
       endTime,
+      completionMode,
+      maxCompletions
     };
 
     quests.push(newQuest);
@@ -938,17 +1061,15 @@ async handleStartQuest(client: Client, payload: any, autoStart = false) {
       // Sanitize quest data to remove IDs
       const sanitizedQuest = {
         title: quest.title,
-        questType: quest.questType,
+        completionMode: quest.completionMode,
         enabled: quest.enabled,
-        allowReplay: quest.allowReplay,
+        maxCompletions: quest.maxCompletions,
         startTime: quest.startTime,
         endTime: quest.endTime,
         version: quest.version,
         steps: quest.steps.map((step: StepDefinition) => ({
           name: step.name,
-          stepId: step.stepId,
           tasks: step.tasks.map((task: TaskDefinition) => ({
-            taskId: task.taskId,
             description: task.description,
             requiredCount: task.requiredCount,
             metaverse: task.metaverse
@@ -1043,9 +1164,9 @@ async handleStartQuest(client: Client, payload: any, autoStart = false) {
       // Sanitize quest data to remove IDs
       const sanitizedQuest = {
         title: this.questDefinition.title,
-        questType: this.questDefinition.questType,
+        completionMode: this.questDefinition.completionMode,
         enabled: this.questDefinition.enabled,
-        allowReplay: this.questDefinition.allowReplay,
+        maxCompletions: this.questDefinition.maxCompletions,
         startTime: this.questDefinition.startTime,
         endTime: this.questDefinition.endTime,
         version: this.questDefinition.version,
@@ -1355,29 +1476,6 @@ private handleIterateQuest(client: Client, payload: any) {
       userQuestInfo.elapsedTime += Math.floor(Date.now()/1000) - userQuestInfo.startTime;
     }
     
-    // // 10. Update the task count and completed tasks count
-    // let tasksCompleted = 0;
-    // for (const step of userQuestInfo.steps) {
-    //   for (const task of step.tasks) {
-    //     if (task.completed) {
-    //       tasksCompleted++;
-    //     }
-    //   }
-    // }
-    // userQuestInfo.tasksCompleted = tasksCompleted;
-    
-    // // 11. Update stepsCompleted count
-    // let stepsCompleted = 0;
-    // for (const step of userQuestInfo.steps) {
-    //   if (step.completed) {
-    //     stepsCompleted++;
-    //   }
-    // }
-    // userQuestInfo.stepsCompleted = stepsCompleted;
-    
-    // // 12. Save the changes to the cache
-    // updateCache(PROFILES_CACHE_KEY, PROFILES_FILE, profiles);
-    
     // 13. Notify the client of success
     client.send("FORCE_COMPLETE_SUCCESS", { 
       questId, 
@@ -1396,13 +1494,31 @@ private handleIterateQuest(client: Client, payload: any) {
           if (c.userData && c.userData.userId === userId) {
             // Found the user, notify them
             console.log("NOTIFYING USER of force complete task", userId)
+            
+            // Get reward information if task has a rewardId
+            let rewardData = null;
+            if (taskDef.rewardId) {
+              const rewards = getCache(REWARDS_CACHE_KEY);
+              const reward = rewards.find((r: any) => r.id === taskDef.rewardId);
+              if (reward) {
+                rewardData = {
+                  id: reward.id,
+                  name: reward.name,
+                  kind: reward.kind,
+                  description: reward.description,
+                  media: reward.media
+                };
+              }
+            }
+            
             c.send("TASK_COMPLETE", {
               questId, 
               stepId, 
               taskId, 
               taskName: taskDef.description,
               userQuestInfo: roomInstance.sanitizeUserQuestData(userQuestInfo),
-              forcedByAdmin: true
+              forcedByAdmin: true,
+              reward: rewardData
             });
             
             // If step was completed, notify of that too

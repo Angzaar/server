@@ -14,10 +14,20 @@ import { BlitzRoom } from "./rooms/BlitzRoom";
 import { TronRoom } from "./components/arcade/TronState";
 import { FlightRoom } from "./rooms/FlightRoom";
 import { QuestRoom } from "./rooms/QuestRoom";
+import { migrateQuests } from "./utils/migrateQuests";
 
 export default config({
-    initializeGameServer: (gameServer) => {
-        initServer()
+    initializeGameServer: async (gameServer) => {
+        await initServer();
+        
+        // Migrate quests to the new format if needed
+        try {
+            const migratedCount = await migrateQuests();
+            console.log(`Quest migration completed. Migrated ${migratedCount} quests.`);
+        } catch (error) {
+            console.error("Error during quest migration:", error);
+        }
+        
         gameServer.define('angzaar_plaza_conference', MainRoom);
         gameServer.define('angzaar_plaza_colosseum', MainRoom);
         gameServer.define('angzaar_plaza_reservations', MainRoom);

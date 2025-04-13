@@ -76,11 +76,11 @@ export function handleQuestData(req:any, res:any){
     const questId = req.params.questId;
     const sortBy = req.query.sortBy || 'elapsedTime'; 
     const order = req.query.orderBy || 'asc';
-    const limit = parseInt(req.query.limit as string) || 100;
-    const completedOnly = (req.query.completed as boolean) || false;
+    const limit = parseInt(req.query.limit as string) || 25;
+    const completedOnly = req.query.completed === 'true' || req.query.completed === true;
     const format = req.query.format; // e.g. 'html'
 
-    // console.log('completedonly', completedOnly)
+    console.log('Query params:', { questId, sortBy, order, limit, completedOnly });
   
     // 1) load all profiles from cache
     const profiles = getCache(PROFILES_CACHE_KEY);
@@ -89,6 +89,12 @@ export function handleQuestData(req:any, res:any){
     if(!quest){
       return res.send([])
     }
+
+    let totalTasks = 0;
+    for(const step of quest.steps){
+      totalTasks += step.tasks.length;
+    }
+    console.log('totalTasks', totalTasks)
   
     // 2) build an array of userQuest data
     let userData: any[] = [];
@@ -101,6 +107,7 @@ export function handleQuestData(req:any, res:any){
       if (!info) continue;
 
       if (completedOnly && !info.completed) {
+        console.log('completedOnly', completedOnly, info.completed)
         continue;
       }
   
@@ -109,11 +116,17 @@ export function handleQuestData(req:any, res:any){
   
       // count how many steps completed
       let stepsCompleted = 0;
+      let tasksCompleted = 0;
+      let progress = 0;
       let totalSteps = info.steps.length; // or from quest definition
       for (const step of info.steps) {
         if (step.completed) stepsCompleted++;
+        for(const task of step.tasks){
+          if(task.completed) tasksCompleted++;
+        }
       }
-  
+      progress = totalTasks > 0 ? Math.floor(tasksCompleted / totalTasks * 100) : 0;
+
       userData.push({
         userId: profile.ethAddress,
         name: profile.name,
@@ -122,15 +135,33 @@ export function handleQuestData(req:any, res:any){
         timeCompleted: info.timeCompleted,
         elapsedTime,
         stepsCompleted,
-        totalSteps
+        totalSteps,
+        tasksCompleted,
+        totalTasks,
+        progress
       });
     }
+
+    // Validate sortBy field - ensure it exists on the data objects
+    const validSortFields = ['elapsedTime', 'stepsCompleted', 'progress', 'tasksCompleted', 'startTime', 'timeCompleted'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'elapsedTime';
+
+    console.log('Before sorting:', userData.map(u => ({ name: u.name, [sortField]: u[sortField] })));
   
-    // 3) sort by the requested field
+    // 3) sort by the requested field - handle numeric fields properly
     userData.sort((a, b) => {
-      if (order === 'asc') return a[sortBy] - b[sortBy];
-      else return b[sortBy] - a[sortBy];
+      // Ensure values exist and are numbers
+      const aValue = typeof a[sortField] === 'number' ? a[sortField] : 0;
+      const bValue = typeof b[sortField] === 'number' ? b[sortField] : 0;
+      
+      if (order === 'asc') {
+        return aValue - bValue;
+      } else {
+        return bValue - aValue;
+      }
     });
+
+    console.log('After sorting:', userData.map(u => ({ name: u.name, [sortField]: u[sortField] })));
   
     // 4) limit
     userData = userData.slice(0, limit);
@@ -142,7 +173,7 @@ export function handleQuestData(req:any, res:any){
       return res.send(markdown);
     } else {
       // default = JSON
-      return res.json(userData);;
+      return res.json(userData);
     }
 }
 

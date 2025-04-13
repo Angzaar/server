@@ -1,33 +1,110 @@
 [
   {
-    "id": "nft1",
-    "name": "Rare Sword",
-    "type": "ERC721",
-    "blockchain": "ethereum",
-    "contractAddress": "0xNFT_CONTRACT_ADDRESS",
-    "tokenId": 1,
-    "cost": 500
+    "id": "7d17d43b-8683-422d-90dc-a0c7042dce51",
+    "creator": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691b",
+    "name": "test reward",
+    "description": "asdfasdfasdfsd",
+    "kind": "DECENTRALAND_ITEM",
+    "media": {
+      "image": "",
+      "video": ""
+    },
+    "web2": {
+      "sku": "",
+      "fulfillment": "DIGITAL_CODE",
+      "quantity": 1,
+      "redemptionInstructions": ""
+    },
+    "decentraland": {
+      "campaignKey": "asdfasdasdfasdfasdfsdddf"
+    },
+    "allowExternalCreators": false,
+    "listing": {
+      "listed": false,
+      "marketplaceId": "",
+      "price": {
+        "amount": "0",
+        "currency": {
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "chainId": 1
+      },
+      "quantity": 55
+    },
+    "createdAt": "2025-04-13T03:40:14.572Z",
+    "updatedAt": "2025-04-13T03:40:14.573Z"
   },
   {
-    "id": "dust_reward",
-    "name": "500 Dust",
-    "type": "DUST",
-    "amount": 500,
-    "cost": 450
+    "id": "d77065bf-1e38-4743-90b1-0213f9b21602",
+    "creator": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691b",
+    "name": "tes reawrt",
+    "description": "asdfasdf",
+    "kind": "DECENTRALAND_ITEM",
+    "media": {
+      "image": "",
+      "video": ""
+    },
+    "web2": {
+      "sku": "",
+      "fulfillment": "DIGITAL_CODE",
+      "quantity": 1,
+      "redemptionInstructions": ""
+    },
+    "decentraland": {
+      "campaignKey": "asdfasdfsdffdf"
+    },
+    "allowExternalCreators": false,
+    "listing": {
+      "listed": false,
+      "marketplaceId": "",
+      "price": {
+        "amount": "0",
+        "currency": {
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "chainId": 1
+      },
+      "quantity": 22
+    },
+    "createdAt": "2025-04-13T03:43:54.260Z",
+    "updatedAt": "2025-04-13T03:43:54.261Z"
   },
   {
-    "id": "special_role",
-    "name": "VIP Access",
-    "type": "CUSTOM",
-    "customHandler": "grantVipRole",
-    "cost": 1000
-  },
-  {
-    "id": "arcade_credits",
-    "name": "100 Arcade Credits",
-    "type": "CUSTOM",
-    "customHandler": "addArcadeCredits",
-    "amount": 100,
-    "cost": 300
+    "id": "a962ecc6-d41c-47ab-9304-06b1c79615c1",
+    "creator": "0xaabe0ecfaf9e028d63cf7ea7e772cf52d662691a",
+    "name": "jjjfghkfhkjhjkghjfhg",
+    "description": "ssgfgsdfsdfggffg",
+    "kind": "WEB2_ITEM",
+    "media": {
+      "image": "",
+      "video": ""
+    },
+    "web2": {
+      "sku": "",
+      "fulfillment": "DIGITAL_CODE",
+      "quantity": 1,
+      "redemptionInstructions": ""
+    },
+    "decentraland": {
+      "campaignKey": ""
+    },
+    "allowExternalCreators": false,
+    "listing": {
+      "listed": false,
+      "marketplaceId": "",
+      "price": {
+        "amount": "0",
+        "currency": {
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "chainId": 1
+      },
+      "quantity": 1
+    },
+    "createdAt": "2025-04-13T03:54:16.142Z",
+    "updatedAt": "2025-04-13T03:54:16.142Z"
   }
 ]
