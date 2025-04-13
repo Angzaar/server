@@ -17,7 +17,8 @@
             "description": "1Existence",
             "requiredCount": 1,
             "metaverse": "DECENTRALAND",
-            "prerequisiteTaskIds": []
+            "prerequisiteTaskIds": [],
+            "rewardId": "a962ecc6-d41c-47ab-9304-06b1c79615c1"
           },
           {
             "taskId": "1ul1i",

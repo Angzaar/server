@@ -5,7 +5,7 @@ import { getCache } from "../../utils/cache";
 import { PROFILES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY, REWARDS_CACHE_KEY } from "../../utils/initializer";
 import { StepDefinition } from "./utils/types";
 import { questRooms } from "../../rooms";
-import { isLegacyQuest, sanitizeUserQuestData, syncQuestToCache } from "./utils/functions";
+import { isLegacyQuest, sanitizeUserQuestData, syncQuestToCache, processTaskCompletion } from "./utils/functions";
 import { forceEndQuestForAll } from "./QuestCreatorHandlers";
 
 
@@ -169,37 +169,25 @@ export async function handleQuestAction(room:QuestRoom, client: Client, payload:
   
     console.log('user can complete task')
   
-    // 12) Increment the count (count-only approach)
-    userTask.count++;
-    console.log(`[QuestRoom] user="${client.userData.userId}" incremented task="${taskId}" in step="${stepId}", quest="${questId}" => now count=${userTask.count}`);
+    // Use the shared task completion processing function
+    const taskResult = processTaskCompletion(room, questId, stepId, taskId, userQuestInfo, false);
+    
+    if (!taskResult.success) {
+      console.warn(`[QuestRoom] Task completion processing failed: ${taskResult.error}`);
+      return;
+    }
   
+    console.log(`[QuestRoom] user="${client.userData.userId}" processed task="${taskId}" in step="${stepId}", quest="${questId}" => now count=${userTask.count}`);
   
-    if(userTask.count >= taskDef.requiredCount){
-      userTask.completed = true
-      
-      // Get reward information if task has a rewardId
-      let rewardData = null;
-      if (taskDef.rewardId) {
-        const rewards = getCache(REWARDS_CACHE_KEY);
-        const reward = rewards.find((r: any) => r.id === taskDef.rewardId);
-        if (reward) {
-          rewardData = {
-            id: reward.id,
-            name: reward.name,
-            kind: reward.kind,
-            description: reward.description,
-            media: reward.media
-          };
-        }
-      }
-      
+    // Send task completion notification if the task was completed
+    if (taskResult.taskComplete) {
       client.send("TASK_COMPLETE", {
         questId, 
         stepId, 
         taskId, 
-        taskName: taskDef.description, 
+        taskName: taskResult.taskName, 
         userQuestInfo: sanitizeUserQuestData(room, userQuestInfo),
-        reward: rewardData
+        reward: taskResult.rewardData
       });
       
       // Notify creator rooms
@@ -207,48 +195,41 @@ export async function handleQuestAction(room:QuestRoom, client: Client, payload:
         questId,
         stepId,
         taskId,
-        taskName: taskDef.description,
+        taskName: taskResult.taskName,
         userId: client.userData.userId,
         userName: profile.name || client.userData.userId,
-        rewardGranted: rewardData ? rewardData.name : null
+        rewardGranted: taskResult.rewardData ? taskResult.rewardData.name : null
       });
     }
   
-    // 13) Check if this step is now completed
-    //     A step is complete if all tasks in stepDef have userTask.count >= requiredCount
-    const isStepDone = stepDef.tasks.every((defTask) => {
-      const ut = userStep.tasks.find((u: any) => u.taskId === defTask.taskId);
-      const reqCount = defTask.requiredCount ?? 0;
-      // If user hasn't recorded the task or count < req => not done
-      return ut && ((ut.count >= reqCount) || ut.completed === true);
-    });
-  
-    if (isStepDone && !userStep.completed) {
-      userStep.completed = true;
-      // Optionally broadcast so front-end knows a step is done
-      client.send("STEP_COMPLETE", { questId, stepId, userQuestInfo: sanitizeUserQuestData(room, userQuestInfo) });
+    // Send step completion notification if the step was completed
+    if (taskResult.stepComplete && userStep.completed) {
+      client.send("STEP_COMPLETE", { 
+        questId, 
+        stepId, 
+        userQuestInfo: sanitizeUserQuestData(room, userQuestInfo) 
+      });
+      
       console.log(`[QuestRoom] user="${client.userData.userId}" completed step="${stepId}" in quest="${questId}".`);
       
       // Notify creator rooms
       notifyCreatorRooms(room, "STEP_COMPLETED_BY_USER", {
         questId,
         stepId,
-        stepName: stepDef.name,
+        stepName: taskResult.stepName,
         userId: client.userData.userId,
         userName: profile.name || client.userData.userId
       });
     }
   
-    // 13) Check if all steps are done => quest complete
-    const allStepsDone = room.questDefinition.steps.every((defStep) => {
-      const st = userQuestInfo.steps.find((u: any) => u.stepId === defStep.stepId);
-      return st && st.completed;
-    });
-  
-    if (allStepsDone && !userQuestInfo.completed) {
-      userQuestInfo.completed = true;
-      userQuestInfo.elapsedTime += Math.floor(Date.now()/1000) - userQuestInfo.startTime
-      room.broadcast("QUEST_COMPLETE", { questId, user: client.userData.userId, userQuestInfo: sanitizeUserQuestData(room, userQuestInfo) });
+    // Send quest completion notification if the quest was completed
+    if (taskResult.questComplete && userQuestInfo.completed) {
+      room.broadcast("QUEST_COMPLETE", { 
+        questId, 
+        user: client.userData.userId, 
+        userQuestInfo: sanitizeUserQuestData(room, userQuestInfo) 
+      });
+      
       console.log(`[QuestRoom] user="${client.userData.userId}" completed quest="${questId}" fully!`);
       
       // Notify creator rooms
@@ -424,31 +405,31 @@ export function handleForceCompleteTask(room:QuestRoom, client: Client, message:
     const quests:QuestDefinition[] = getCache(QUEST_TEMPLATES_CACHE_KEY)
     const quest = quests.find((q: QuestDefinition) => q.questId === questId);
     if(!quest){
-    console.log("Quest not found")
-    client.send("QUEST_ERROR", { message: `Quest ${questId} not found` });
-    return;
+      console.log("Quest not found")
+      client.send("QUEST_ERROR", { message: `Quest ${questId} not found` });
+      return;
     }
     
     // 1. Check if the client is the creator of the quest
     if (client.userData.userId !== quest.creator) {
-    console.log("Not the creator")
-    client.send("QUEST_ERROR", { message: "Only the quest creator can force complete tasks" });
-    return;
+      console.log("Not the creator")
+      client.send("QUEST_ERROR", { message: "Only the quest creator can force complete tasks" });
+      return;
     }
     
     // 2. Get the step and task from the quest definition
     const stepDef = quest.steps.find(s => s.stepId === stepId);
     if (!stepDef) {
-    console.log("Step not found")
-    client.send("QUEST_ERROR", { message: `Step ${stepId} not found in quest` });
-    return;
+      console.log("Step not found")
+      client.send("QUEST_ERROR", { message: `Step ${stepId} not found in quest` });
+      return;
     }
     
     const taskDef = stepDef.tasks.find(t => t.taskId === taskId);
     if (!taskDef) { 
-    console.log("Task not found")
-    client.send("QUEST_ERROR", { message: `Task ${taskId} not found in step ${stepId}` });
-    return;
+      console.log("Task not found")
+      client.send("QUEST_ERROR", { message: `Task ${taskId} not found in step ${stepId}` });
+      return;
     }
     
     // 3. Get the user profile
@@ -456,139 +437,80 @@ export function handleForceCompleteTask(room:QuestRoom, client: Client, message:
     const profile = profiles.find((p: any) => p.ethAddress === userId);
     
     if (!profile) {
-    console.log("User not found")
-    client.send("QUEST_ERROR", { message: `User ${userId} not found` });
-    return;
+      console.log("User not found")
+      client.send("QUEST_ERROR", { message: `User ${userId} not found` });
+      return;
     }
     
     // 4. Get the user's quest progress
     let userQuestInfo = profile.questsProgress?.find(
-    (q: any) => q.questId === questId && q.questVersion === quest.version
+      (q: any) => q.questId === questId && q.questVersion === quest.version
     );
     
     if (!userQuestInfo) {
-    client.send("QUEST_ERROR", { message: `User ${userId} has not started this quest` });
-    return;
+      client.send("QUEST_ERROR", { message: `User ${userId} has not started this quest` });
+      return;
     }
     
-    // 5. Get or create the step progress
-    let userStep = userQuestInfo.steps.find((s: any) => s.stepId === stepId);
-    if (!userStep) {
-    userStep = {
-        stepId,
-        completed: false,
-        tasks: stepDef.tasks.map((t) => ({
-        taskId: t.taskId,
-        count: 0,
-        completed: t.taskId === taskId // Mark only the forced task as completed
-        }))
-    };
-    userQuestInfo.steps.push(userStep);
+    // Use the shared task completion processing function with forcedByAdmin=true
+    const taskResult = processTaskCompletion(room, questId, stepId, taskId, userQuestInfo, true);
+    
+    if (!taskResult.success) {
+      console.warn(`[QuestRoom] Force task completion processing failed: ${taskResult.error}`);
+      client.send("QUEST_ERROR", { message: taskResult.error });
+      return;
     }
     
-    // 6. Get or create the task progress
-    let userTask = userStep.tasks.find((t: any) => t.taskId === taskId);
-    if (!userTask) {
-    userTask = {
-        taskId,
-        count: taskDef.requiredCount || 1,
-        completed: true
-    };
-    userStep.tasks.push(userTask);
-    } else {
-    // Update the task to be completed
-    userTask.count = taskDef.requiredCount || 1;
-    userTask.completed = true;
-    }
-    
-    // 7. Check if the step is now completed
-    const isStepDone = stepDef.tasks.every((defTask) => {
-    const ut = userStep.tasks.find((u: any) => u.taskId === defTask.taskId);
-    const reqCount = defTask.requiredCount ?? 0;
-    return ut && ((ut.count >= reqCount) || ut.completed === true);
-    });
-    
-    if (isStepDone && !userStep.completed) {
-    userStep.completed = true;
-    }
-    
-    // 8. Check if the quest is now completed
-    const allStepsDone = quest.steps.every((defStep) => {
-    const st = userQuestInfo.steps.find((u: any) => u.stepId === defStep.stepId);
-    return st && st.completed;
-    });
-    
-    if (allStepsDone && !userQuestInfo.completed) {
-    userQuestInfo.completed = true;
-    userQuestInfo.elapsedTime += Math.floor(Date.now()/1000) - userQuestInfo.startTime;
-    }
-    
-    // 13. Notify the client of success
+    // Notify the client of success
     client.send("FORCE_COMPLETE_SUCCESS", { 
-    questId, 
-    stepId, 
-    taskId, 
-    userId, 
-    message: `Task ${taskId} has been force completed for user ${userId}`
+      questId, 
+      stepId, 
+      taskId, 
+      userId, 
+      message: `Task ${taskId} has been force completed for user ${userId}`
     });
     
-    // 14. Find the target user's client in any QuestRoom instance and notify them
-
+    // Find the target user's client in any QuestRoom instance and notify them
     for (const [roomId, roomInstance] of questRooms.entries()) {
-    if (roomInstance.state.questId === questId) {
+      if (roomInstance.state.questId === questId) {
         // Found a room for this quest, now find the client
         roomInstance.clients.forEach((c: Client) => {
-        if (c.userData && c.userData.userId === userId) {
+          if (c.userData && c.userData.userId === userId) {
             // Found the user, notify them
             console.log("NOTIFYING USER of force complete task", userId)
             
-            // Get reward information if task has a rewardId
-            let rewardData = null;
-            if (taskDef.rewardId) {
-            const rewards = getCache(REWARDS_CACHE_KEY);
-            const reward = rewards.find((r: any) => r.id === taskDef.rewardId);
-            if (reward) {
-                rewardData = {
-                id: reward.id,
-                name: reward.name,
-                kind: reward.kind,
-                description: reward.description,
-                media: reward.media
-                };
-            }
-            }
-            
+            // Send task completion notification
             c.send("TASK_COMPLETE", {
-            questId, 
-            stepId, 
-            taskId, 
-            taskName: taskDef.description,
-            userQuestInfo: sanitizeUserQuestData(roomInstance, userQuestInfo),
-            forcedByAdmin: true,
-            reward: rewardData
+              questId, 
+              stepId, 
+              taskId, 
+              taskName: taskResult.taskName,
+              userQuestInfo: sanitizeUserQuestData(roomInstance, userQuestInfo),
+              forcedByAdmin: true,
+              reward: taskResult.rewardData
             });
             
             // If step was completed, notify of that too
-            if (isStepDone) {
-            c.send("STEP_COMPLETE", { 
+            if (taskResult.stepComplete) {
+              c.send("STEP_COMPLETE", { 
                 questId, 
                 stepId,
                 userQuestInfo: sanitizeUserQuestData(roomInstance, userQuestInfo),
                 forcedByAdmin: true
-            });
+              });
             }
             
             // If quest was completed, notify of that too
-            if (allStepsDone) {
-            c.send("QUEST_COMPLETE", { 
+            if (taskResult.questComplete) {
+              c.send("QUEST_COMPLETE", { 
                 questId, 
                 userQuestInfo: sanitizeUserQuestData(roomInstance, userQuestInfo),
                 forcedByAdmin: true
-            });
+              });
             }
-        }
+          }
         });
-    }
+      }
     }
 }
   
