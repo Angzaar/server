@@ -37,3 +37,30 @@ export interface RewardEntry {
 export type RewardHandlers = {
   [key in RewardKind]: (reward: RewardEntry) => Promise<boolean>;
 };
+
+/**
+ * Interface representing a reward transaction record
+ */
+export interface RewardTransaction {
+  id: string;                     // Unique transaction ID
+  rewardEntryId: string;          // ID of the original reward entry
+  timestamp: number;              // When the transaction occurred
+  userId: string;                 // User who received/attempted to receive the reward
+  userEthAddress?: string;        // Ethereum address for blockchain rewards
+  questId: string;                // Associated quest ID
+  stepId: string;                 // Step ID (if applicable)
+  taskId: string;                 // Task ID (if applicable)
+  rewardType: string;             // Type of reward (uses RewardKind)
+  rewardName: string;             // Name of the reward
+  status: 'success' | 'failed';   // Whether the transaction succeeded
+  error: string | null;           // Error message if failed
+  metadata: {                     // Additional metadata about the transaction
+    attempts: number;             // How many attempts were made
+    sourceType: 'task' | 'step' | 'quest';  // What triggered this reward
+    rewardData: {                 // Simplified reward data for reference
+      id?: string;
+      name?: string;
+      kind?: string;
+    }
+  }
+}

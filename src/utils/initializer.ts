@@ -26,6 +26,7 @@ export const ADMINS_FILE = path.join(DATA_LOCATION, process.env.ADMINS_FILE)
 export const CUSTOM_ITEMS_FILE = path.join(DATA_LOCATION, process.env.CUSTOM_ITEMS_FILE)
 export const TRANSACTIONS_FILE = path.join(DATA_LOCATION, process.env.TRANSACTIONS_FILE)
 export const REWARDS_FILE = path.join(DATA_LOCATION, process.env.REWARDS_FILE)
+export const REWARDS_TRANSACTIONS_FILE = path.join(DATA_LOCATION, process.env.REWARDS_TRANSACTIONS_FILE || 'rewards_transactions.json')
 export const QUEST_TEMPLATES_FILE = path.join(DATA_LOCATION, process.env.QUEST_TEMPLATES_FILE)
 export const VERSES_FILE = path.join(DATA_LOCATION, process.env.VERSES_FILE)
 
@@ -42,6 +43,7 @@ export const ADMINS_FILE_CACHE_KEY = process.env.ADMINS_FILE_CACHE_KEY
 export const CUSTOM_ITEMS_FILE_CACHE_KEY = process.env.CUSTOM_ITEMS_FILE_CACHE_KEY
 export const TRANSACTIONS_FILE_CACHE_KEY = process.env.TRANSACTIONS_FILE_CACHE_KEY
 export const REWARDS_CACHE_KEY = process.env.REWARDS_CACHE_KEY
+export const REWARDS_TRANSACTIONS_CACHE_KEY = process.env.REWARDS_TRANSACTIONS_CACHE_KEY || 'rewards_transactions'
 export const QUEST_TEMPLATES_CACHE_KEY = process.env.QUEST_TEMPLATES_CACHE_KEY
 export const VERSES_CACHE_KEY = process.env.VERSES_CACHE_KEY
 
@@ -62,6 +64,7 @@ export function initServer(){
     loadCache(CUSTOM_ITEMS_FILE, CUSTOM_ITEMS_FILE_CACHE_KEY)
     loadCache(TRANSACTIONS_FILE, TRANSACTIONS_FILE_CACHE_KEY)
     loadCache(REWARDS_FILE, REWARDS_CACHE_KEY)
+    loadCache(REWARDS_TRANSACTIONS_FILE, REWARDS_TRANSACTIONS_CACHE_KEY)
     loadCache(QUEST_TEMPLATES_FILE, QUEST_TEMPLATES_CACHE_KEY)
     loadCache(VERSES_FILE, VERSES_CACHE_KEY)
 
@@ -80,6 +83,7 @@ export function initServer(){
         const customItems = getCache(CUSTOM_ITEMS_FILE_CACHE_KEY)
         const transactions = getCache(TRANSACTIONS_FILE_CACHE_KEY)
         const rewards = getCache(REWARDS_CACHE_KEY)
+        const rewardsTransactions = getCache(REWARDS_TRANSACTIONS_CACHE_KEY)
         const quests = getCache(QUEST_TEMPLATES_CACHE_KEY)
         const verses = getCache(VERSES_CACHE_KEY)
 
@@ -96,6 +100,7 @@ export function initServer(){
         await cacheSyncToFile(CUSTOM_ITEMS_FILE, CUSTOM_ITEMS_FILE_CACHE_KEY, customItems);
         await cacheSyncToFile(TRANSACTIONS_FILE, TRANSACTIONS_FILE_CACHE_KEY, transactions);
         await cacheSyncToFile(REWARDS_FILE, REWARDS_CACHE_KEY, rewards);
+        await cacheSyncToFile(REWARDS_TRANSACTIONS_FILE, REWARDS_TRANSACTIONS_CACHE_KEY, rewardsTransactions);
         await cacheSyncToFile(QUEST_TEMPLATES_FILE, QUEST_TEMPLATES_CACHE_KEY, quests);
         await cacheSyncToFile(VERSES_FILE, VERSES_CACHE_KEY, verses);
     }, Number(process.env.CACHE_REFRESH_INTERVAL_S) * 1000);

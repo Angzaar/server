@@ -6,9 +6,19 @@ const cache = new Map<string, any>();
 // Utility to load data into cache
 export const loadCache = (filePath: string, key: string) => {
   try {
-    const data = JSON.parse(fs.readFileSync(path.resolve(filePath), "utf-8"));
-    cache.set(key, data);
-    return data
+    if (fs.existsSync(path.resolve(filePath))) {
+      const data = JSON.parse(fs.readFileSync(path.resolve(filePath), "utf-8"));
+      cache.set(key, data);
+      return data;
+    } else {
+      console.log(`File not found at ${filePath}, initializing empty cache for ${key}`);
+      // Initialize with empty array or object depending on the key
+      const initialData = key.includes('TRANSACTIONS') ? [] : {};
+      cache.set(key, initialData);
+      // Create the file with empty data
+      fs.writeFileSync(path.resolve(filePath), JSON.stringify(initialData, null, 2));
+      return initialData;
+    }
   } catch (error) {
     console.error(`Error loading cache for ${key} from ${filePath}:`, error);
     throw new Error("Failed to initialize cache.");

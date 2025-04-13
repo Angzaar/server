@@ -1,7 +1,7 @@
 import { QuestRoom } from "../QuestRoom";
-import { getCache } from "../../../utils/cache";
-import { REWARDS_CACHE_KEY } from "../../../utils/initializer";
-import { RewardEntry } from "./types";
+import { getCache, updateCache } from "../../../utils/cache";
+import { REWARDS_CACHE_KEY, REWARDS_TRANSACTIONS_CACHE_KEY, REWARDS_TRANSACTIONS_FILE } from "../../../utils/initializer";
+import { RewardEntry, RewardTransaction } from "./types";
 import {
   distributeWeb2Reward,
   distributeERC20Reward,
@@ -182,18 +182,6 @@ export async function processRewardQueue() {
 }
 
 /**
- * Save failed rewards for later analysis
- * 
- * @param reward Failed reward entry
- */
-function saveFailedReward(reward: RewardEntry) {
-  // In a real system, persist this to a database
-  console.log(`[RewardSystem] Saving failed reward for later analysis: ${reward.id}`);
-  failedRewards.push(reward);
-  // Example implementation: updateCache('FAILED_REWARDS_CACHE_KEY', 'failed_rewards.json', failedRewards);
-}
-
-/**
  * Distribute a reward based on its type
  * 
  * @param reward Reward entry to distribute
@@ -203,44 +191,126 @@ async function distributeReward(reward: RewardEntry): Promise<boolean> {
   try {
     if (!reward || !reward.rewardData) {
       console.error(`[RewardSystem] Invalid reward data for ${reward?.id}`);
+      reward.error = 'Invalid reward data';
+      saveTransactionRecord(reward, false);
       return false;
     }
     
     const { kind } = reward.rewardData;
     console.log(`[RewardSystem] Distributing ${kind} reward to user ${reward.userId}`);
     
+    let success = false;
+    
     switch (kind) {
       case 'WEB2_ITEM':
-        return await distributeWeb2Reward(reward);
+        success = await distributeWeb2Reward(reward);
+        break;
         
       case 'ERC20':
-        return await distributeERC20Reward(reward);
+        success = await distributeERC20Reward(reward);
+        break;
         
       case 'ERC721':
-        return await distributeERC721Reward(reward);
+        success = await distributeERC721Reward(reward);
+        break;
         
       case 'ERC1155':
-        return await distributeERC1155Reward(reward);
+        success = await distributeERC1155Reward(reward);
+        break;
         
       case 'PHYSICAL':
-        return await distributePhysicalReward(reward);
+        success = await distributePhysicalReward(reward);
+        break;
         
       case 'DECENTRALAND_ITEM':
-        return await distributeDecentralandItemReward(reward);
+        success = await distributeDecentralandItemReward(reward);
+        break;
         
       case 'DECENTRALAND_REWARD':
-        return await distributeDecentralandReward(reward);
+        success = await distributeDecentralandReward(reward);
+        break;
         
       default:
         console.error(`[RewardSystem] Unknown reward kind: ${kind}`);
         reward.error = `Unknown reward kind: ${kind}`;
-        return false;
+        success = false;
     }
+    
+    // Log the transaction result
+    saveTransactionRecord(reward, success);
+    
+    return success;
   } catch (error) {
     console.error(`[RewardSystem] Error distributing reward: ${error}`);
     reward.error = `Distribution error: ${error}`;
+    
+    // Log the failed transaction
+    saveTransactionRecord(reward, false);
+    
     return false;
   }
+}
+
+/**
+ * Log a reward transaction to the rewards_transactions file
+ * 
+ * @param reward The reward entry
+ * @param success Whether the distribution was successful
+ */
+function saveTransactionRecord(reward: RewardEntry, success: boolean) {
+  try {
+    // Get the current transactions array
+    const transactions = getCache(REWARDS_TRANSACTIONS_CACHE_KEY);
+    
+    // Create a transaction record
+    const transaction: RewardTransaction = {
+      id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      rewardEntryId: reward.id,
+      timestamp: Date.now(),
+      userId: reward.userId,
+      userEthAddress: reward.userEthAddress,
+      questId: reward.questId,
+      stepId: reward.stepId,
+      taskId: reward.taskId,
+      rewardType: reward.rewardData?.kind || 'UNKNOWN',
+      rewardName: reward.rewardData?.name || 'Unknown Reward',
+      status: success ? 'success' : 'failed',
+      error: reward.error || null,
+      metadata: {
+        attempts: reward.attempts,
+        sourceType: reward.sourceType,
+        rewardData: { 
+          id: reward.rewardData?.id,
+          name: reward.rewardData?.name,
+          kind: reward.rewardData?.kind
+        }
+      }
+    };
+    
+    // Add the transaction to the array
+    transactions.push(transaction);
+    
+    // Update the cache (writing to disk will happen in the periodic sync)
+    updateCache(REWARDS_TRANSACTIONS_FILE, REWARDS_TRANSACTIONS_CACHE_KEY, transactions);
+    
+    console.log(`[RewardSystem] Logged ${success ? 'successful' : 'failed'} transaction ${transaction.id} for reward ${reward.id}`);
+  } catch (error) {
+    console.error(`[RewardSystem] Error saving transaction record: ${error}`);
+  }
+}
+
+/**
+ * Save failed rewards for later analysis
+ * 
+ * @param reward Failed reward entry
+ */
+function saveFailedReward(reward: RewardEntry) {
+  // In a real system, persist this to a database
+  console.log(`[RewardSystem] Saving failed reward for later analysis: ${reward.id}`);
+  failedRewards.push(reward);
+  
+  // Also log the failed transaction
+  saveTransactionRecord(reward, false);
 }
 
 /**
@@ -259,6 +329,83 @@ export function getRewardQueue() {
  */
 export function getFailedRewards() {
   return [...failedRewards];
+}
+
+/**
+ * Get all reward transactions
+ * 
+ * @returns Array of all reward transactions
+ */
+export function getRewardTransactions(): RewardTransaction[] {
+  try {
+    return getCache(REWARDS_TRANSACTIONS_CACHE_KEY) || [];
+  } catch (error) {
+    console.error('[RewardSystem] Error getting reward transactions:', error);
+    return [];
+  }
+}
+
+/**
+ * Get transactions for a specific user
+ * 
+ * @param userId User ID to filter by
+ * @returns Array of reward transactions for the user
+ */
+export function getUserRewardTransactions(userId: string): RewardTransaction[] {
+  try {
+    const transactions = getCache(REWARDS_TRANSACTIONS_CACHE_KEY) || [];
+    return transactions.filter((tx: RewardTransaction) => tx.userId === userId);
+  } catch (error) {
+    console.error(`[RewardSystem] Error getting reward transactions for user ${userId}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Get transactions for a specific quest
+ * 
+ * @param questId Quest ID to filter by
+ * @returns Array of reward transactions for the quest
+ */
+export function getQuestRewardTransactions(questId: string): RewardTransaction[] {
+  try {
+    const transactions = getCache(REWARDS_TRANSACTIONS_CACHE_KEY) || [];
+    return transactions.filter((tx: RewardTransaction) => tx.questId === questId);
+  } catch (error) {
+    console.error(`[RewardSystem] Error getting reward transactions for quest ${questId}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Clear old transactions from the log (for maintenance)
+ * Keeps transactions from the last 30 days by default
+ * 
+ * @param daysToKeep Number of days of transaction history to retain
+ * @returns Number of transactions removed
+ */
+export function pruneRewardTransactions(daysToKeep: number = 30): number {
+  try {
+    const transactions = getCache(REWARDS_TRANSACTIONS_CACHE_KEY) || [];
+    const cutoffTime = Date.now() - (daysToKeep * 24 * 60 * 60 * 1000);
+    const originalCount = transactions.length;
+    
+    // Filter to keep only transactions newer than the cutoff
+    const prunedTransactions = transactions.filter((tx: RewardTransaction) => 
+      tx.timestamp >= cutoffTime
+    );
+    
+    // Update the cache
+    updateCache(REWARDS_TRANSACTIONS_FILE, REWARDS_TRANSACTIONS_CACHE_KEY, prunedTransactions);
+    
+    const removedCount = originalCount - prunedTransactions.length;
+    console.log(`[RewardSystem] Pruned ${removedCount} old transactions, keeping ${prunedTransactions.length} from the last ${daysToKeep} days`);
+    
+    return removedCount;
+  } catch (error) {
+    console.error(`[RewardSystem] Error pruning reward transactions:`, error);
+    return 0;
+  }
 }
 
 /**
