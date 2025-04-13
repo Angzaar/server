@@ -109,7 +109,7 @@ export interface EphemeralCodeData {
 
 
 /* ---------- ENUMS & COMMON TYPES ---------- */
-export type RewardKind = 'WEB2_ITEM' | 'ERC20' | 'ERC721' | 'ERC1155' | 'PHYSICAL' | 'DECENTRALAND_ITEM';
+export type RewardKind = 'WEB2_ITEM' | 'ERC20' | 'ERC721' | 'ERC1155' | 'PHYSICAL' | 'DECENTRALAND_ITEM' | 'DECENTRALAND_REWARD';
 
 export type Currency =
   | { symbol: string; decimals: number }                 // on‑chain (e.g. ETH, MATIC)
@@ -187,6 +187,14 @@ export interface Reward {
     quantity?: number;              // Number of items to grant
     rarity?: string;                // Rarity level (e.g. 'common', 'rare', 'epic', 'legendary')
     category?: string;              // Item category (e.g. 'wearable', 'emote', 'scene')
+  };
+
+  decentralandReward?: {
+    rewardId: string;               // Decentraland reward identifier
+    type: string;                   // Type of reward (e.g. 'mana', 'catalyst', 'names', 'badges')
+    amount?: string;                // Amount for numerical rewards
+    expiresAt?: string;             // ISO date for time-limited rewards
+    metadata?: Record<string, any>; // Additional reward-specific metadata
   };
 
   /* usage & permissions */

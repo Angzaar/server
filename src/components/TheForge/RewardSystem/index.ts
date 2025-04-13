@@ -8,7 +8,8 @@ import {
   distributeERC721Reward,
   distributeERC1155Reward,
   distributePhysicalReward,
-  distributeDecentralandItemReward
+  distributeDecentralandItemReward,
+  distributeDecentralandReward
 } from "./processors";
 
 // In-memory queue for rewards (in production, consider using Redis or similar)
@@ -43,7 +44,9 @@ export function createRewardData(rewardId: string) {
     erc20: reward.erc20,
     erc721: reward.erc721,
     erc1155: reward.erc1155,
-    physical: reward.physical
+    physical: reward.physical,
+    decentralandItem: reward.decentralandItem,
+    decentralandReward: reward.decentralandReward
   };
 }
 
@@ -224,6 +227,9 @@ async function distributeReward(reward: RewardEntry): Promise<boolean> {
         
       case 'DECENTRALAND_ITEM':
         return await distributeDecentralandItemReward(reward);
+        
+      case 'DECENTRALAND_REWARD':
+        return await distributeDecentralandReward(reward);
         
       default:
         console.error(`[RewardSystem] Unknown reward kind: ${kind}`);

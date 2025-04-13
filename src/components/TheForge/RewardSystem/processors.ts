@@ -175,3 +175,31 @@ export async function distributeDecentralandItemReward(reward: RewardEntry): Pro
     return false;
   }
 }
+
+/**
+ * Distribute a Decentraland reward
+ */
+export async function distributeDecentralandReward(reward: RewardEntry): Promise<boolean> {
+  const { rewardData, userEthAddress } = reward;
+  
+  if (!userEthAddress) {
+    console.error(`[RewardSystem] Missing user ETH address for DECENTRALAND_REWARD`);
+    return false;
+  }
+  
+  try {
+    console.log(`[RewardSystem] Distributing Decentraland reward: ${rewardData.name} (type: ${rewardData.decentralandReward?.type}) to ${userEthAddress}`);
+    
+    // In a real implementation, you would:
+    // 1. Connect to the Decentraland rewards API or service
+    // 2. Issue the appropriate reward to the user based on the type
+    // 3. Verify the reward was successfully granted
+    // 4. Record the transaction details
+    
+    // For this example, we'll just simulate success
+    return true;
+  } catch (error) {
+    console.error(`[RewardSystem] Error distributing Decentraland reward: ${error}`);
+    return false;
+  }
+}
