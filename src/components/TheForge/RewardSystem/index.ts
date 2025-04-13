@@ -409,6 +409,39 @@ export function pruneRewardTransactions(daysToKeep: number = 30): number {
 }
 
 /**
+ * Check if a user has connected their Web3 wallet in Decentraland
+ * 
+ * @param userEthAddress The user's Ethereum address to check
+ * @returns Promise<boolean> true if user has a connected Web3 wallet, false otherwise
+ */
+export async function checkDecentralandWeb3Wallet(userEthAddress: string): Promise<boolean> {
+  if (!userEthAddress) {
+    console.error('[RewardSystem] No user Ethereum address provided to check Web3 wallet');
+    return false;
+  }
+  
+  try {
+    const response = await fetch(`https://realm-provider.decentraland.org/lambdas/profiles/${userEthAddress}`);
+    const data = await response.json();
+    
+    if (data && data.avatars && data.avatars.length > 0) {
+      const avatar = data.avatars[0];
+      if (!avatar.hasConnectedWeb3) {
+        console.error(`[RewardSystem] User ${userEthAddress} has not connected their web3 wallet`);
+        return false;
+      }
+      return true;
+    } else {
+      console.error(`[RewardSystem] User ${userEthAddress} does not have an avatar`);
+      return false;
+    }
+  } catch (error) {
+    console.error(`[RewardSystem] Error checking if user ${userEthAddress} is a web3 wallet: ${error}`);
+    return false;
+  }
+}
+
+/**
  * Manually retry a failed reward (for admin purposes)
  * 
  * @param rewardId ID of the failed reward to retry

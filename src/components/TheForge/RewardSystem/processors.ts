@@ -1,4 +1,5 @@
 import { RewardEntry } from "./types";
+import { checkDecentralandWeb3Wallet } from "./index";
 
 /**
  * Distribute a web2 item (digital code, file download, etc.)
@@ -158,6 +159,12 @@ export async function distributeDecentralandItemReward(reward: RewardEntry): Pro
     console.error(`[RewardSystem] Missing user ETH address for DECENTRALAND_ITEM reward`);
     return false;
   }
+
+   // Check if the user has a connected Web3 wallet
+  const hasWeb3Wallet = await checkDecentralandWeb3Wallet(userEthAddress);
+  if (!hasWeb3Wallet) {
+    return false;
+  }
   
   try {
     console.log(`[RewardSystem] Distributing Decentraland item: ${rewardData.name} to ${userEthAddress}`);
@@ -187,33 +194,15 @@ export async function distributeDecentralandReward(reward: RewardEntry): Promise
     return false;
   }
 
-  //todo: check if user is a web3 wallet from the decentraland catalysts servers
-  //todo: if not, return false
-  //todo: if yes, continue
-
-  try{
-    const response = await fetch(`https://realm-provider.decentraland.org/lambdas/profiles/${userEthAddress}`)
-    const data = await response.json()
-      if(data && data.avatars && data.avatars.length > 0){
-        const avatar = data.avatars[0]
-        if(!avatar.hasConnectedWeb3){
-          console.error(`[RewardSystem] User ${userEthAddress} has not connected their web3 wallet`);
-          return false
-        }
-    }else{
-      console.error(`[RewardSystem] User ${userEthAddress} does not have an avatar`);
-      return false;
-    }
-
-  }catch(error){
-    console.error(`[RewardSystem] Error checking if user ${userEthAddress} is a web3 wallet: ${error}`);
+  // Check if the user has a connected Web3 wallet
+  const hasWeb3Wallet = await checkDecentralandWeb3Wallet(userEthAddress);
+  if (!hasWeb3Wallet) {
     return false;
   }
 
-      //todo: check if user has already claimed the reward
-    //todo: if yes, return false
-    //todo: if no, continue
-    
+  //todo: check if user has already claimed the reward
+  //todo: if yes, return false
+  //todo: if no, continue
   
   try {
     console.log(`[RewardSystem] Distributing Decentraland reward: ${rewardData.name} (type: ${rewardData.decentralandReward?.type}) to ${userEthAddress}`);
