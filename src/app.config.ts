@@ -13,9 +13,8 @@ import { ReservationRoom } from "./rooms/ReservationRoom";
 import { BlitzRoom } from "./rooms/BlitzRoom";
 import { TronRoom } from "./components/arcade/TronState";
 import { FlightRoom } from "./rooms/FlightRoom";
-import { QuestRoom } from "./rooms/QuestRoom";
-import { migrateQuests } from "./utils/migrateQuests";
-
+import { QuestRoom } from "./components/TheForge/QuestRoom";
+import { migrateQuests } from "./components/TheForge/utils/functions";
 export default config({
     initializeGameServer: async (gameServer) => {
         await initServer();

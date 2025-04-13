@@ -1,7 +1,7 @@
-import { ephemeralCodes, QuestDefinition, StepDefinition, TaskDefinition } from "../rooms/QuestRoom";
-import { router } from "../router";
+
 import { getCache } from "./cache";
 import { PROFILES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY } from "./initializer";
+import { QuestDefinition, StepDefinition, TaskDefinition } from "../components/TheForge/utils/types";
 
 export function handleQuestOutline(req:any, res:any){
     const questId = req.query.questId as string;
@@ -43,10 +43,10 @@ export function handleQuestOutline(req:any, res:any){
       version:quest.version,
       enabled:quest.enabled,
       questId: quest.questId,
-      questType:quest.questType,
       startTrigger:quest.startTrigger,
       creator:quest.creator,
       title: quest.title,
+      completionMode:quest.completionMode,
       steps: quest.steps.map((step:StepDefinition) => ({
         stepId: step.stepId,
         name: step.name,
@@ -443,10 +443,6 @@ function buildQuestOutlineHTML(outline: QuestDefinition): string {
         ${outline.questId}
       </div>
       <div class="meta-item">
-        <strong>Quest Type</strong>
-        <span class="badge">${outline.questType}</span>
-      </div>
-      <div class="meta-item">
         <strong>Version</strong>
         ${outline.version}
       </div>
@@ -457,9 +453,7 @@ function buildQuestOutlineHTML(outline: QuestDefinition): string {
           '<span class="status-disabled">Disabled</span>'}
       </div>
       <div class="meta-item">
-        <strong>Allow Replay</strong>
-        ${outline.allowReplay ? 'Yes' : 'No'}
-      </div>
+
       ${outline.startTime ? `
       <div class="meta-item">
         <strong>Start Time</strong>
@@ -866,7 +860,6 @@ function buildQuestDataHTML(questData: QuestDefinition, userData: any[]): string
     <header>
       <h1>Quest: ${questData.title}</h1>
       <div class="header-meta">
-        Type: <span class="badge">${questData.questType}</span> &nbsp;|&nbsp; 
         Version: ${questData.version}
       </div>
     </header>
