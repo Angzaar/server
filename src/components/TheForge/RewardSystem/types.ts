@@ -22,6 +22,7 @@ export interface RewardEntry {
     erc721?: any;                 // ERC721-specific reward data
     erc1155?: any;                // ERC1155-specific reward data
     physical?: any;               // Physical reward data
+    decentralandItem?: any;       // Decentraland item-specific data
   };
   sourceType: 'task' | 'step' | 'quest';  // What triggered this reward
   status: 'pending' | 'processing' | 'completed' | 'failed';  // Current processing status

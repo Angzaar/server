@@ -7,7 +7,8 @@ import {
   distributeERC20Reward,
   distributeERC721Reward,
   distributeERC1155Reward,
-  distributePhysicalReward
+  distributePhysicalReward,
+  distributeDecentralandItemReward
 } from "./processors";
 
 // In-memory queue for rewards (in production, consider using Redis or similar)
@@ -220,6 +221,9 @@ async function distributeReward(reward: RewardEntry): Promise<boolean> {
         
       case 'PHYSICAL':
         return await distributePhysicalReward(reward);
+        
+      case 'DECENTRALAND_ITEM':
+        return await distributeDecentralandItemReward(reward);
         
       default:
         console.error(`[RewardSystem] Unknown reward kind: ${kind}`);

@@ -109,7 +109,7 @@ export interface EphemeralCodeData {
 
 
 /* ---------- ENUMS & COMMON TYPES ---------- */
-export type RewardKind = 'WEB2_ITEM' | 'ERC20' | 'ERC721' | 'ERC1155' | 'PHYSICAL';
+export type RewardKind = 'WEB2_ITEM' | 'ERC20' | 'ERC721' | 'ERC1155' | 'PHYSICAL' | 'DECENTRALAND_ITEM';
 
 export type Currency =
   | { symbol: string; decimals: number }                 // on‑chain (e.g. ETH, MATIC)
@@ -178,6 +178,15 @@ export interface Reward {
     weightGrams?: number;
     shippingFrom?: string;          // ISO country code or free‑text
     quantity?: number;
+  };
+
+  decentralandItem?: {
+    itemId: string;                 // Decentraland item identifier
+    assetContractAddress?: string;  // Contract address if item is on blockchain
+    tokenId?: string;               // Token ID if applicable
+    quantity?: number;              // Number of items to grant
+    rarity?: string;                // Rarity level (e.g. 'common', 'rare', 'epic', 'legendary')
+    category?: string;              // Item category (e.g. 'wearable', 'emote', 'scene')
   };
 
   /* usage & permissions */

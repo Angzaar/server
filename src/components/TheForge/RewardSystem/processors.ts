@@ -147,3 +147,31 @@ export async function distributePhysicalReward(reward: RewardEntry): Promise<boo
     return false;
   }
 }
+
+/**
+ * Distribute a Decentraland item reward
+ */
+export async function distributeDecentralandItemReward(reward: RewardEntry): Promise<boolean> {
+  const { rewardData, userEthAddress } = reward;
+  
+  if (!userEthAddress) {
+    console.error(`[RewardSystem] Missing user ETH address for DECENTRALAND_ITEM reward`);
+    return false;
+  }
+  
+  try {
+    console.log(`[RewardSystem] Distributing Decentraland item: ${rewardData.name} to ${userEthAddress}`);
+    
+    // In a real implementation, you would:
+    // 1. Connect to the Decentraland marketplace or item distribution API
+    // 2. Grant the item to the user's account
+    // 3. Verify the item was successfully added to the user's inventory
+    // 4. Record the transaction details
+    
+    // For this example, we'll just simulate success
+    return true;
+  } catch (error) {
+    console.error(`[RewardSystem] Error distributing Decentraland item reward: ${error}`);
+    return false;
+  }
+}
