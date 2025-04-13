@@ -186,6 +186,34 @@ export async function distributeDecentralandReward(reward: RewardEntry): Promise
     console.error(`[RewardSystem] Missing user ETH address or campaign key for DECENTRALAND_REWARD`);
     return false;
   }
+
+  //todo: check if user is a web3 wallet from the decentraland catalysts servers
+  //todo: if not, return false
+  //todo: if yes, continue
+
+  try{
+    const response = await fetch(`https://realm-provider.decentraland.org/lambdas/profiles/${userEthAddress}`)
+    const data = await response.json()
+      if(data && data.avatars && data.avatars.length > 0){
+        const avatar = data.avatars[0]
+        if(!avatar.hasConnectedWeb3){
+          console.error(`[RewardSystem] User ${userEthAddress} has not connected their web3 wallet`);
+          return false
+        }
+    }else{
+      console.error(`[RewardSystem] User ${userEthAddress} does not have an avatar`);
+      return false;
+    }
+
+  }catch(error){
+    console.error(`[RewardSystem] Error checking if user ${userEthAddress} is a web3 wallet: ${error}`);
+    return false;
+  }
+
+      //todo: check if user has already claimed the reward
+    //todo: if yes, return false
+    //todo: if no, continue
+    
   
   try {
     console.log(`[RewardSystem] Distributing Decentraland reward: ${rewardData.name} (type: ${rewardData.decentralandReward?.type}) to ${userEthAddress}`);
