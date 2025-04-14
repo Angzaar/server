@@ -1,4 +1,4 @@
-import { handleAdminChance, handleAdminDeployments, handlePlazaAdmin, handleServerAdmin } from "../utils/admin";
+import { handleAdminChance, handleAdminDeployments, handlePlazaAdmin, handleServerAdmin, generateAdminHtml } from "../utils/admin";
 import { getCache, updateCache } from "../utils/cache";
 import { ADMINS_FILE_CACHE_KEY, PROFILES_FILE } from "../utils/initializer";
 
@@ -34,7 +34,18 @@ export function adminRouter(router:any){
     
     router.get('/admin/:data/:auth', authentication, (req:any, res:any) => {
         console.log('admin data router - ', req.params.data, req.params.auth)
-        res.status(200).send({valid:true, [req.params.data]: getCache(req.params.data)});
+        
+        const data = getCache(req.params.data);
+        
+        if (req.query.format === 'html') {
+            // Use the utility function to generate HTML
+            const html = generateAdminHtml(req.params.data, data);
+            res.setHeader('Content-Type', 'text/html');
+            res.status(200).send(html);
+        } else {
+            // Return JSON as before
+            res.status(200).send({valid:true, [req.params.data]: data});
+        }
     });
 
     router.get('/admin/clear/:data/:auth', authentication, (req:any, res:any) => {

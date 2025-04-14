@@ -17,6 +17,13 @@ PlayFabData.settings.developerSecretKey = playFabSecretKey;
 PlayFabAdmin.settings.titleId = playFabTitleId;
 PlayFabAdmin.settings.developerSecretKey = playFabSecretKey;
 
+
+const IWB_PLAYFAB_SERVER = PlayFabServer
+
+// Initialize the PlayFab client iwb
+IWB_PLAYFAB_SERVER.settings.titleId = process.env.PLAYFAB_ID_QA;
+IWB_PLAYFAB_SERVER.settings.developerSecretKey = process.env.PLAYFAB_KEY_QA;
+
 let eventQueue:any[] = []
 let postingEvents:boolean = false
 let eventInterval:any
@@ -200,9 +207,9 @@ export const UpdateCatalogItems = (request:PlayFabAdminModels.UpdateCatalogItems
   })
 }
 
-export const playerLogin = (request:PlayFabServerModels.LoginWithServerCustomIdRequest):Promise<PlayFabServerModels.ServerLoginResult> => {
+export const playerLogin = (request:PlayFabServerModels.LoginWithServerCustomIdRequest, playFabServer:any):Promise<PlayFabServerModels.ServerLoginResult> => {
   return new Promise((resolve, reject)=>{
-    PlayFabServer.LoginWithServerCustomId( request, c(resolve, reject)) 
+    playFabServer ? playFabServer.LoginWithServerCustomId( request, c(resolve, reject)) : PlayFabServer.LoginWithServerCustomId( request, c(resolve, reject)) 
   })
 }
 
@@ -252,4 +259,126 @@ export const getLeaderboard = (request:PlayFabServerModels.GetLeaderboardRequest
   return new Promise((resolve, reject)=>{
     PlayFabServer.GetLeaderboard( request, c(resolve, reject)) 
   })
+}
+
+
+export async function fetchPlayfabMetadata(user:string){
+  try{
+    let userData = await playfabLogin(user)
+    return await fetchUserMetaData(userData)
+  }
+  catch(e){
+    console.log("error logging into playfab", e)
+  }
+}
+
+export async function playfabLogin(user:string){
+  try{
+    const playfabInfo = await playerLogin(
+      {
+        CreateAccount: false, 
+        ServerCustomId: user,
+        InfoRequestParameters:{
+          "UserDataKeys":[], "UserReadOnlyDataKeys":[],
+          "GetUserReadOnlyData":false,
+          "GetUserInventory":false,
+          "GetUserVirtualCurrency":true,
+          "GetPlayerStatistics":false,
+          "GetCharacterInventories":false,
+          "GetCharacterList":false,
+          "GetPlayerProfile":true,
+          "GetTitleData":false,
+          "GetUserAccountInfo":true,
+          "GetUserData":false,
+      }
+      },
+      IWB_PLAYFAB_SERVER
+      )
+
+    if(playfabInfo.error){
+      console.log('playfab login error => ', playfabInfo.error)
+      return null
+    }
+    else{
+      // console.log('playfab login success, initiate realm')
+      return playfabInfo
+    }
+  }
+  catch(e){
+    console.log('playfab connection error', e)
+    return null
+  }
+}
+
+export async function fetchUserMetaData(realmData:any){
+  try{
+    let response = await axios.post("https://" + process.env.PLAYFAB_ID_QA + ".playfabapi.com/File/GetFiles", 
+    {Entity: {Id: realmData.EntityToken.Entity.Id, Type: realmData.EntityToken.Entity.Type}},
+    {headers:{
+        'content-type': 'application/json',
+        'X-EntityToken': realmData.EntityToken.EntityToken}}
+    )
+    return response.data
+  }
+  catch(e:any){
+    console.log('error fetching user metadata, maybe they dont have the file?', e.message)//
+    return null
+  }
+}
+
+export function getDownloadURL(metadata:any, fileKey:string){
+  let url:any
+  if(metadata.code === 200){
+    let version = metadata.data.ProfileVersion
+    if(version > 0){
+        let data = metadata.data.Metadata
+        let count = 0
+        for (const key in data) {
+            if (data.hasOwnProperty(key)) {
+                count++
+            }
+        }
+
+        if(count > 0){
+          if(data[fileKey]){
+            url = data[fileKey].DownloadUrl
+          }
+        }
+    }
+  }
+  return url
+}
+
+export async function fetchPlayfabFile(metadata:any, fileKey:string, returnNull?:boolean){
+  if(metadata.code === 200){
+      let version = metadata.data.ProfileVersion
+      if(version > 0){
+          let data = metadata.data.Metadata
+          let count = 0
+          for (const key in data) {
+              if (data.hasOwnProperty(key)) {
+                  count++
+              }
+          }
+
+          if(count > 0){
+            if(data[fileKey]){
+              let res = await fetch(data[fileKey].DownloadUrl)
+              let json = await res.json()
+              return json
+            }else{
+              return returnNull ? undefined : []
+            }
+
+          }else{
+            return returnNull ? undefined : []
+          }
+          
+      }else{
+        console.log('no profile')
+        return returnNull ? undefined : []
+      }
+  }else{
+    return returnNull ? undefined : []
+  }
 }

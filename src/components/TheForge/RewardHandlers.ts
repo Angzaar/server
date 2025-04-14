@@ -56,21 +56,19 @@ export async function handleDeleteReward(client: Client, message: any) {
     
     // Get existing rewards
     const rewards = getCache(REWARDS_CACHE_KEY) || [];
+    const reward = rewards.find((r: Reward) => r.id === message.id);
     
-    // Find the reward to delete
-    const rewardIndex = rewards.findIndex((r: Reward) => r.id === message.id);
-    
-    if (rewardIndex === -1) {
+    if (!reward) {
       throw new Error('Reward not found');
     }
     
     // Security check: only creator or admin can delete
-    if (rewards[rewardIndex].creator !== client.userData.userAddress) {
+    if (reward.creator !== client.userData.userId) {
       throw new Error('Unauthorized: only the creator can delete this reward');
     }
     
     // Remove the reward
-    const deletedReward = rewards.splice(rewardIndex, 1)[0];
+    const deletedReward = rewards.splice(rewards.indexOf(reward), 1)[0];
     
     // Update cache
     updateCache(REWARDS_CACHE_KEY, REWARDS_CACHE_KEY, rewards);

@@ -134,8 +134,7 @@ export async function handleResetQuest(room:QuestRoom, client: Client, payload: 
     forceResetQuestData(room, questId, true)
     return;
 }
-
-  
+ 
 export function handleEndQuest(room:QuestRoom, client: Client, payload: any) {
     console.log('handling quest end', payload)
 
@@ -173,6 +172,34 @@ export function handleEndQuest(room:QuestRoom, client: Client, payload: any) {
     }
 
     client.send("QUEST_ENDED", { questId });
+    return;
+}
+
+export function handleDeleteQuest(room:QuestRoom, client: Client, payload: any) {
+    console.log("Handling quest delete:", payload);
+    const { questId } = payload;
+
+    const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
+    const quest = quests.find((q: QuestDefinition) => q.questId === questId);
+    if (!quest) {
+        client.send("QUEST_ERROR", { message: `Quest '${questId}' not found in cache.` });
+        return; 
+    }
+
+    if (client.userData.userId !== quest.creator) {
+        client.send("QUEST_ERROR", { message: "Only the quest creator can delete this quest." });
+        return;
+    }
+
+    if (quest.enabled) {
+        client.send("QUEST_ERROR", { message: "Cannot delete an active quest. Please disable the quest first before deleting." });
+        return;
+    }
+
+    quests.splice(quests.indexOf(quest), 1);
+    syncQuestToCache(questId, quest);
+
+    client.send("QUEST_DELETE", { questId });
     return;
 }
 

@@ -10,7 +10,6 @@ export interface RewardEntry {
   stepId: string;                 // Step ID (if applicable)
   taskId: string;                 // Task ID (if applicable)
   userId: string;                 // User who earned the reward
-  userEthAddress?: string;        // Ethereum address for blockchain rewards
   rewardData: {                   // Reward details
     id: string;
     name: string;
@@ -43,10 +42,9 @@ export type RewardHandlers = {
  */
 export interface RewardTransaction {
   id: string;                     // Unique transaction ID
-  rewardEntryId: string;          // ID of the original reward entry
+  // rewardEntryId: string;          // ID of the original reward entry
   timestamp: number;              // When the transaction occurred
   userId: string;                 // User who received/attempted to receive the reward
-  userEthAddress?: string;        // Ethereum address for blockchain rewards
   questId: string;                // Associated quest ID
   stepId: string;                 // Step ID (if applicable)
   taskId: string;                 // Task ID (if applicable)

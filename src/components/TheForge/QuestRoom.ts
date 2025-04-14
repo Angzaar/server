@@ -11,7 +11,7 @@ import { loadQuest, handleStartQuest, handleQuestAction, handleForceCompleteTask
 import { handleCreateVerse, handleEditVerse, handleDeleteVerse } from "./VerseHandlers";
 import { handleCreateReward, handleDeleteReward } from "./RewardHandlers";
 import { handleQuestOutline, handleQuestStats } from "./DataHandlers";
-import { handleCreateQuest, handleEditQuest, handleEndQuest, handleResetQuest } from "./QuestCreatorHandlers";
+import { handleCreateQuest, handleEditQuest, handleEndQuest, handleResetQuest, handleDeleteQuest } from "./QuestCreatorHandlers";
 export const ephemeralCodes: Record<string, EphemeralCodeData> = {};
 
 class QuestState extends Schema {
@@ -54,6 +54,9 @@ export class QuestRoom extends Room<QuestState> {
     this.onMessage("QUEST_EDIT", (client: Client, message: any) =>
       handleEditQuest(client, message)
     );
+    this.onMessage("QUEST_DELETE", (client: Client, message: any) =>
+      handleDeleteQuest(this, client, message)
+    );
     this.onMessage("QUEST_START", (client: Client, message: any) =>
       handleStartQuest(this, client, message)
     );
@@ -91,7 +94,7 @@ export class QuestRoom extends Room<QuestState> {
     );
 
     this.onMessage("QUEST_CREATOR", handleCreateQuest.bind(this));
-    this.onMessage("QUEST_DELETE", (client: Client, message: any) =>
+    this.onMessage("QUEST_RESET", (client: Client, message: any) =>
       handleResetQuest(this, client, message)
     );
     this.onMessage("REWARD_CREATE", (client: Client, message: any) =>

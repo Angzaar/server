@@ -170,7 +170,7 @@ export async function handleQuestAction(room:QuestRoom, client: Client, payload:
     console.log('user can complete task')
   
     // Use the shared task completion processing function
-    const taskResult = processTaskCompletion(room, questId, stepId, taskId, userQuestInfo, false);
+    const taskResult = processTaskCompletion(room, questId, stepId, taskId, profile.ethAddress, userQuestInfo, false);
     
     if (!taskResult.success) {
       console.warn(`[QuestRoom] Task completion processing failed: ${taskResult.error}`);
@@ -453,7 +453,7 @@ export function handleForceCompleteTask(room:QuestRoom, client: Client, message:
     }
     
     // Use the shared task completion processing function with forcedByAdmin=true
-    const taskResult = processTaskCompletion(room, questId, stepId, taskId, userQuestInfo, true);
+    const taskResult = processTaskCompletion(room, questId, stepId, taskId, profile.ethAddress, userQuestInfo, true);
     
     if (!taskResult.success) {
       console.warn(`[QuestRoom] Force task completion processing failed: ${taskResult.error}`);

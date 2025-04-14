@@ -237,7 +237,7 @@ export function sanitizeUserQuestData(room:QuestRoom, userQuestInfo: any) {
  * @param forcedByAdmin Whether this task was force-completed by an admin
  * @returns Object containing step completion and quest completion status
  */
-export function processTaskCompletion(room: QuestRoom, questId: string, stepId: string, taskId: string, userQuestInfo: any, forcedByAdmin = false) {
+export function processTaskCompletion(room: QuestRoom, questId: string, stepId: string, taskId: string, userId: string, userQuestInfo: any, forcedByAdmin = false) {
   if (!room.questDefinition) {
     return { 
       success: false, 
@@ -336,6 +336,7 @@ export function processTaskCompletion(room: QuestRoom, questId: string, stepId: 
   // 1. Task completion reward
   let taskRewardData = null;
   if (!previousTaskState && userTask.completed) {
+    console.log("processing task reward")
     // Get normalized array of task reward IDs
     const taskRewardIds = getNormalizedRewardIds(taskDef);
     
@@ -344,11 +345,7 @@ export function processTaskCompletion(room: QuestRoom, questId: string, stepId: 
       taskRewardData = createRewardData(taskRewardIds[0]);
       
       // Process all rewards
-      processMultipleRewardsByIds(room, questId, stepId, taskId, {
-        ...userQuestInfo,
-        userId: userQuestInfo.userId || userQuestInfo.ethAddress,
-        userEthAddress: userQuestInfo.ethAddress
-      }, taskRewardIds);
+      processMultipleRewardsByIds(room, questId, stepId, taskId, userId, userQuestInfo, taskRewardIds);
     }
   }
   
@@ -358,31 +355,24 @@ export function processTaskCompletion(room: QuestRoom, questId: string, stepId: 
     const stepRewardIds = getNormalizedRewardIds(stepDef);
     
     if (stepRewardIds.length > 0) {
+      console.log("processing step reward")
       // Process all step rewards
-      processMultipleRewardsByIds(room, questId, stepId, '', {
-        ...userQuestInfo,
-        userId: userQuestInfo.userId || userQuestInfo.ethAddress,
-        userEthAddress: userQuestInfo.ethAddress
-      }, stepRewardIds);
+      processMultipleRewardsByIds(room, questId, stepId, taskId, userId, userQuestInfo, stepRewardIds);
     }
     // Fallback to the old method of looking for task rewards if no direct step rewards
-    else {
-      // Use the last task with a reward in the step as a fallback
-      const tasksWithRewards = stepDef.tasks.filter(task => getNormalizedRewardIds(task).length > 0);
-      const lastRewardTask = tasksWithRewards.length > 0 ? tasksWithRewards[tasksWithRewards.length - 1] : null;
+    // else {
+    //   // Use the last task with a reward in the step as a fallback
+    //   const tasksWithRewards = stepDef.tasks.filter(task => getNormalizedRewardIds(task).length > 0);
+    //   const lastRewardTask = tasksWithRewards.length > 0 ? tasksWithRewards[tasksWithRewards.length - 1] : null;
       
-      if (lastRewardTask) {
-        const lastTaskRewardIds = getNormalizedRewardIds(lastRewardTask);
+    //   if (lastRewardTask) {
+    //     const lastTaskRewardIds = getNormalizedRewardIds(lastRewardTask);
         
-        if (lastTaskRewardIds.length > 0) {
-          processMultipleRewardsByIds(room, questId, stepId, '', {
-            ...userQuestInfo,
-            userId: userQuestInfo.userId || userQuestInfo.ethAddress,
-            userEthAddress: userQuestInfo.ethAddress
-          }, lastTaskRewardIds);
-        }
-      }
-    }
+    //     if (lastTaskRewardIds.length > 0) {
+    //       processMultipleRewardsByIds(room, questId, stepId, taskId, userId, userQuestInfo, lastTaskRewardIds);
+    //     }
+    //   }
+    // }
   }
   
   // 3. Quest completion reward
@@ -412,11 +402,7 @@ export function processTaskCompletion(room: QuestRoom, questId: string, stepId: 
     
     // Process all quest completion rewards if any were found
     if (questRewardIds.length > 0) {
-      processMultipleRewardsByIds(room, questId, '', '', {
-        ...userQuestInfo,
-        userId: userQuestInfo.userId || userQuestInfo.ethAddress,
-        userEthAddress: userQuestInfo.ethAddress
-      }, questRewardIds);
+      processMultipleRewardsByIds(room, questId, stepId, taskId, userId, userQuestInfo, questRewardIds);
     }
   }
   

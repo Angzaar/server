@@ -61,7 +61,7 @@ export function createRewardData(rewardId: string) {
  * @param rewardData Reward data to process
  * @returns ID of the queued reward (for tracking)
  */
-export function processReward(room: QuestRoom, questId: string, stepId: string, taskId: string, userQuestInfo: any, rewardData: any) {
+export function processReward(room: QuestRoom, questId: string, stepId: string, taskId: string, userId: string, userQuestInfo: any, rewardData: any) {
   console.log(`[QuestRoom] Processing reward for task="${taskId}" in step="${stepId}", quest="${questId}"`);
   
   if (!rewardData) return null;
@@ -73,8 +73,7 @@ export function processReward(room: QuestRoom, questId: string, stepId: string, 
     questId,
     stepId,
     taskId,
-    userId: userQuestInfo.userId || userQuestInfo.ethAddress || '',
-    userEthAddress: userQuestInfo.userEthAddress || userQuestInfo.ethAddress,
+    userId,
     rewardData,
     sourceType: taskId ? 'task' : (stepId ? 'step' : 'quest'),
     status: 'pending',
@@ -99,7 +98,7 @@ export function processReward(room: QuestRoom, questId: string, stepId: string, 
  * @param rewardId The ID of the reward to process
  * @returns ID of the queued reward (for tracking) or null if reward not found
  */
-export function processRewardById(room: QuestRoom, questId: string, stepId: string, taskId: string, userQuestInfo: any, rewardId: string) {
+export function processRewardById(room: QuestRoom, questId: string, stepId: string, taskId: string, userId: string, userQuestInfo: any, rewardId: string) {
   if (!rewardId) return null;
   
   const rewardData = createRewardData(rewardId);
@@ -108,7 +107,7 @@ export function processRewardById(room: QuestRoom, questId: string, stepId: stri
     return null;
   }
   
-  return processReward(room, questId, stepId, taskId, userQuestInfo, rewardData);
+  return processReward(room, questId, stepId, taskId, userId, userQuestInfo, rewardData);
 }
 
 /**
@@ -151,20 +150,20 @@ export async function processRewardQueue() {
       // Increment attempts and move to back of queue if under max retries
       reward.attempts++;
       
-      if (reward.attempts < MAX_RETRY_ATTEMPTS) {
-        // Move to the end of the queue for retry
-        rewardQueue.shift();
-        rewardQueue.push(reward);
-        console.log(`[RewardSystem] Failed to process reward ${reward.id}, retry ${reward.attempts}/${MAX_RETRY_ATTEMPTS}`);
-      } else {
+      // if (reward.attempts < MAX_RETRY_ATTEMPTS) {
+      //   // Move to the end of the queue for retry
+      //   rewardQueue.shift();
+      //   rewardQueue.push(reward);
+      //   console.log(`[RewardSystem] Failed to process reward ${reward.id}, retry ${reward.attempts}/${MAX_RETRY_ATTEMPTS}`);
+      // } else {
         // Max retries reached, mark as failed and remove
         reward.status = 'failed';
         rewardQueue.shift();
-        console.log(`[RewardSystem] Failed to process reward ${reward.id} after ${MAX_RETRY_ATTEMPTS} attempts, removing from queue`);
+        // console.log(`[RewardSystem] Failed to process reward ${reward.id} after ${MAX_RETRY_ATTEMPTS} attempts, removing from queue`);
         
         // Save failed rewards for later analysis or manual processing
-        saveFailedReward(reward);
-      }
+        // saveFailedReward(reward);
+      // }
     }
   } catch (error) {
     console.error('[RewardSystem] Error processing reward queue:', error);
@@ -265,10 +264,8 @@ function saveTransactionRecord(reward: RewardEntry, success: boolean) {
     // Create a transaction record
     const transaction: RewardTransaction = {
       id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      rewardEntryId: reward.id,
       timestamp: Date.now(),
       userId: reward.userId,
-      userEthAddress: reward.userEthAddress,
       questId: reward.questId,
       stepId: reward.stepId,
       taskId: reward.taskId,
@@ -477,11 +474,11 @@ export function retryFailedReward(rewardId: string): boolean {
  * @param rewardIds Array of reward IDs to process
  * @returns Array of queued reward IDs (for tracking)
  */
-export function processMultipleRewardsByIds(room: QuestRoom, questId: string, stepId: string, taskId: string, userQuestInfo: any, rewardIds: string[]): string[] {
+export function processMultipleRewardsByIds(room: QuestRoom, questId: string, stepId: string, taskId: string, userId: string, userQuestInfo: any, rewardIds: string[]): string[] {
   if (!rewardIds || !Array.isArray(rewardIds) || rewardIds.length === 0) {
     // Handle legacy single rewardId
     if (typeof rewardIds === 'string') {
-      const result = processRewardById(room, questId, stepId, taskId, userQuestInfo, rewardIds);
+      const result = processRewardById(room, questId, stepId, taskId, userId, userQuestInfo, rewardIds);
       return result ? [result] : [];
     }
     return [];
@@ -491,7 +488,7 @@ export function processMultipleRewardsByIds(room: QuestRoom, questId: string, st
   const results: string[] = [];
   
   for (const rewardId of rewardIds) {
-    const result = processRewardById(room, questId, stepId, taskId, userQuestInfo, rewardId);
+    const result = processRewardById(room, questId, stepId, taskId, userId, userQuestInfo, rewardId);
     if (result) {
       results.push(result);
     }
@@ -516,9 +513,9 @@ export function getNormalizedRewardIds(entity: any): string[] {
   }
   
   // Fall back to legacy single rewardId if available
-  if (entity.rewardId) {
-    return [entity.rewardId];
-  }
+  // if (entity.rewardId) {
+  //   return [entity.rewardId];
+  // }
   
   return [];
 }
