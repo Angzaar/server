@@ -97,3 +97,4 @@ node_modules
 .idea
 data/conference.json.example.json
 data/conference.json.example.json
+/deploy

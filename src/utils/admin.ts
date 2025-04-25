@@ -1,10 +1,10 @@
 import path from "path"
 import { getCache, updateCache } from "./cache"
-import { ADMINS_FILE_CACHE_KEY, LOCATIONS_CACHE_KEY, LOCATIONS_FILE, LOTTERY_FILE_CACHE_KEY, PROFILES_CACHE_KEY, TEMP_LOCATION } from "./initializer"
+import { ADMINS_FILE_CACHE_KEY, LOCATIONS_CACHE_KEY, LOCATIONS_FILE, LOTTERY_FILE_CACHE_KEY, PROFILES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY, TEMP_LOCATION } from "./initializer"
 import { uuidV4 } from "ethers"
 import fs from "fs/promises";
 import archiver from "archiver";
-import { checkDCLDeploymentQueue, checkDeploymentReservations, deploymentQueue } from "./deployment";
+import { checkDCLDeploymentQueue, checkDeploymentReservations, deploymentQueue, resetDeployment } from "./deployment";
 import { buildDiscordMessage, cancelLottery, LOTTERY_WALLET, lotterySignUp, processNewLottery, processQueueForItem, transferReceived } from "./lottery";
 import axios from "axios";
 import e from "express";
@@ -79,6 +79,31 @@ export async function prepareLocationReset(id:string, body:any){
         }
     }else if(body.deployType === "world"){
         console.log('deploying a custom world scene for location', locationId, body.worldName)
+
+
+        try{
+            let worldSceneResults = await axios.post((process.env.ENV === "Development" ? process.env.DEV_IWB_SERVER : process.env.PROD_IWB_SERVER) + "world-scenes", {
+                action:'get',
+                type:'scene',
+                world:body.worldName,
+                userId:body.userId,
+                sceneId:body.sceneId
+            },{
+                headers:{"IWB-Auth": process.env.IWB_AUTH}
+            })
+            console.log('scene pool results', worldSceneResults.data)
+
+            if(worldSceneResults.data.valid && worldSceneResults.data.scene){
+                processsIWBScene(location, locations, locationId, worldSceneResults.data.scene)
+            }else{
+                deployEmptyScene(locations, location, locationId)
+            }
+        }
+        catch(e:any){
+            console.log('error getting specific world scene', e.message)
+            deployEmptyScene(locations, location, locationId)
+        }
+
         try{
             let metadata = await fetchPlayfabMetadata(body.userId)
             let scenes = await fetchPlayfabFile(metadata, `${body.worldName}-scenes.json`)
@@ -242,6 +267,16 @@ export async function handleAdminChance(req:any, res:any){
 
 export function handleAdminDeployments(req:any, res:any){
     switch(req.body.action){
+        case 'nudge':
+            console.log('nudging angzaar plaza deployment')
+            checkDCLDeploymentQueue()
+            return res.status(200).send({valid:true});
+
+        case 'empty-bucket':
+            console.log('emptying angzaar plaza bucket')
+            resetDeployment('admin', 'admin forced action')
+            return res.status(200).send({valid:true});
+
         case 'reset':
             console.log('handling reset deployment admin action for locations', req.body.locations)
             handleAdminLocationReset(req.body)
@@ -383,7 +418,25 @@ export function generateAdminHtml(dataType: string, data: any): string {
 function generateQuestsHtml(quests: any[]): string {
     const questsArray = quests || [];
     
-    const generateQuestHtml = (quest: any, index: number) => {
+    // Identify daily quests
+    const dailyQuests = questsArray.filter(quest => 
+        quest.completionMode === 'REPEATABLE' && quest.timeWindow === 'daily'
+    );
+    
+    // Simple summary of quest types
+    const questTypeSummary = `
+    <div class="summary-section quest-summary">
+        <h2>Quest Summary</h2>
+        <div class="stats-grid">
+            <div class="stat-item"><strong>Total Quests:</strong> ${questsArray.length}</div>
+            <div class="stat-item"><strong>Daily Quests:</strong> ${dailyQuests.length}</div>
+            <div class="stat-item"><strong>Regular Quests:</strong> ${questsArray.length - dailyQuests.length}</div>
+        </div>
+    </div>
+    `;
+    
+    // Existing quest HTML generation
+    const generateQuestHtml = (quest: any, index: number) => {        
         // Generate steps HTML (initially hidden)
         const stepsHtml = quest.steps ? quest.steps.map((step: any, stepIndex: number) => {
             // Generate tasks HTML for this step
@@ -454,6 +507,12 @@ function generateQuestsHtml(quests: any[]): string {
                         }
                         ${quest.maxCompletions ? 
                             `<div class="quest-meta-item"><strong>Max Completions:</strong> ${quest.maxCompletions}</div>` : ''
+                        }
+                        ${quest.timeWindow ? 
+                            `<div class="quest-meta-item"><strong>Time Window:</strong> ${quest.timeWindow}</div>` : ''
+                        }
+                        ${quest.autoReset !== undefined ? 
+                            `<div class="quest-meta-item"><strong>Auto Reset:</strong> ${quest.autoReset ? 'Yes' : 'No'}</div>` : ''
                         }
                         ${quest.participationScope ? 
                             `<div class="quest-meta-item"><strong>Participation:</strong> ${quest.participationScope}</div>` : ''
@@ -527,6 +586,25 @@ function generateQuestsHtml(quests: any[]): string {
                 color: #2980b9;
                 margin-bottom: 15px;
                 font-weight: bold;
+            }
+            .summary-section {
+                background: white;
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 25px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            }
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 15px;
+                margin: 15px 0;
+            }
+            .stat-item {
+                padding: 10px;
+                background-color: #f8f9fa;
+                border-radius: 6px;
+                border-left: 3px solid #3498db;
             }
             .quest {
                 background: white;
@@ -628,18 +706,15 @@ function generateQuestsHtml(quests: any[]): string {
                 margin-top: 15px;
             }
             .quest-divider {
-                margin: 30px 0;
                 border: 0;
                 height: 1px;
-                background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0));
+                background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0));
+                margin: 30px 0;
             }
-            .total-quests {
-                background-color: #34495e;
-                color: white;
-                padding: 10px 15px;
-                border-radius: 4px;
-                display: inline-block;
-                margin-bottom: 20px;
+            @media (max-width: 768px) {
+                .quest-meta, .task-details {
+                    grid-template-columns: 1fr;
+                }
             }
         </style>
         <script>
@@ -649,156 +724,375 @@ function generateQuestsHtml(quests: any[]): string {
                 
                 if (content.style.display === 'none') {
                     content.style.display = 'block';
-                    icon.textContent = '-';
+                    icon.innerHTML = '-';
                     icon.style.transform = 'rotate(180deg)';
                 } else {
                     content.style.display = 'none';
-                    icon.textContent = '+';
+                    icon.innerHTML = '+';
                     icon.style.transform = 'rotate(0deg)';
                 }
             }
         </script>
     </head>
     <body>
-        <h1>Quest Data</h1>
-        <div class="container">
-            <div class="timestamp">Generated on: ${new Date().toLocaleString()}</div>
-            <div class="info">Displaying quest data</div>
-            <div class="total-quests">Total Quests: ${questsArray.length}</div>
-            <div class="quests-container">
-                ${questsHtml}
-            </div>
-        </div>
+        <h1>Quest Definitions</h1>
+        <p class="timestamp">Generated on: ${new Date().toLocaleString()}</p>
+        <div class="info">Total quests: ${questsArray.length}</div>
+        
+        ${questTypeSummary}
+        
+        ${questsHtml}
     </body>
     </html>
     `;
 }
 
 /**
- * Generates HTML view for profiles with collapsible quest progress
+ * Generates HTML view for profiles with collapsible sections
  * @param profiles Array of profile objects
  * @returns HTML string
  */
 function generateProfilesHtml(profiles: any[]): string {
     const profilesArray = profiles || [];
     
-    const generateProfileHtml = (profile: any, index: number) => {
-        // Format the creation date
-        const createdDate = profile.createdDate ? new Date(profile.createdDate).toLocaleString() : 'Unknown';
+    // Get quests data for reference
+    const quests = getCache(QUEST_TEMPLATES_CACHE_KEY) || [];
+    
+    // Find daily quests for reference
+    const dailyQuests = quests.filter((quest: any) => 
+        quest.completionMode === 'REPEATABLE' && quest.timeWindow === 'daily'
+    );
+    
+    // Helper to find quest information by ID
+    const getQuestInfo = (questId: string) => {
+        return quests.find((q: any) => q.questId === questId) || { title: 'Unknown Quest', completionMode: 'UNKNOWN' };
+    };
+    
+    // For each profile, calculate quest statistics
+    profilesArray.forEach(profile => {
+        // Initialize quest stats
+        profile.questStats = {
+            totalAttempts: 0,
+            completedQuests: 0,
+            dailyQuestCompletions: 0,
+            inProgressQuests: 0,
+            mostRecentCompletion: null
+        };
         
-        // Generate quest progress HTML
-        const questProgressHtml = profile.questsProgress && profile.questsProgress.length > 0 
-            ? profile.questsProgress.map((quest: any, questIndex: number) => {
-                // Generate steps HTML
-                const stepsHtml = quest.steps && quest.steps.length > 0 
-                    ? quest.steps.map((step: any, stepIndex: number) => {
-                        // Generate tasks HTML
-                        const tasksHtml = step.tasks && step.tasks.length > 0 
-                            ? step.tasks.map((task: any, taskIndex: number) => `
-                                <div class="profile-task">
-                                    <div class="task-detail"><strong>Task ID:</strong> ${task.taskId}</div>
-                                    <div class="task-detail"><strong>Count:</strong> ${task.count}</div>
-                                    <div class="task-detail"><strong>Completed:</strong> ${task.completed ? '✅ Yes' : '❌ No'}</div>
-                                </div>
-                            `).join('') 
-                            : '<p>No tasks in this step</p>';
-                            
-                        return `
-                            <div class="profile-step">
-                                <div class="step-header">
-                                    <h4>Step ID: ${step.stepId}</h4>
-                                    <span class="${step.completed ? 'completed' : 'incomplete'}">${step.completed ? '✅ Completed' : '❌ Incomplete'}</span>
-                                </div>
-                                <div class="tasks-container">
-                                    <h5>Tasks</h5>
-                                    <div class="tasks">
-                                        ${tasksHtml}
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('') 
-                    : '<p>No steps in this quest</p>';
-                    
-                const startTime = quest.startTime ? new Date(quest.startTime * 1000).toLocaleString() : 'Not started';
+        // Process quest progress data if available
+        if (profile.questsProgress && Array.isArray(profile.questsProgress)) {
+            profile.questsProgress.forEach((progress: any) => {
+                // Count this attempt
+                profile.questStats.totalAttempts++;
                 
-                return `
-                    <div class="profile-quest" id="profile-quest-${index}-${questIndex}">
-                        <div class="quest-header" onclick="toggleProfileQuest(${index}, ${questIndex})">
-                            <h4>Quest ID: ${quest.questId}</h4>
-                            <div class="quest-actions">
-                                <div class="quest-status ${quest.completed ? 'enabled' : 'disabled'}">
-                                    ${quest.completed ? 'Completed' : 'In Progress'}
-                                </div>
-                                <span class="expand-icon" id="profile-expand-icon-${index}-${questIndex}">+</span>
-                            </div>
-                        </div>
-                        
-                        <div class="quest-content" id="profile-quest-content-${index}-${questIndex}" style="display: none;">
-                            <div class="quest-meta">
-                                <div class="quest-meta-item"><strong>Version:</strong> ${quest.questVersion}</div>
-                                <div class="quest-meta-item"><strong>Started:</strong> ${quest.started ? '✅ Yes' : '❌ No'}</div>
-                                <div class="quest-meta-item"><strong>Start Time:</strong> ${startTime}</div>
-                                <div class="quest-meta-item"><strong>Elapsed Time:</strong> ${quest.elapsedTime || 0} seconds</div>
-                                <div class="quest-meta-item"><strong>Completed:</strong> ${quest.completed ? '✅ Yes' : '❌ No'}</div>
-                            </div>
-                            
-                            <div class="steps-container">
-                                <h4>Steps</h4>
-                                <div class="steps">
-                                    ${stepsHtml}
-                                </div>
-                            </div>
-                        </div>
+                // Get quest info
+                const questInfo = getQuestInfo(progress.questId);
+                
+                // Count completed vs in-progress
+                if (progress.completed) {
+                    profile.questStats.completedQuests++;
+                    
+                    // Check if it's a daily quest
+                    if (questInfo.completionMode === 'REPEATABLE' && questInfo.timeWindow === 'daily') {
+                        profile.questStats.dailyQuestCompletions++;
+                    }
+                    
+                    // Track most recent completion
+                    if (progress.completedAt && (!profile.questStats.mostRecentCompletion || 
+                        progress.completedAt > profile.questStats.mostRecentCompletion)) {
+                        profile.questStats.mostRecentCompletion = progress.completedAt;
+                    }
+                } else if (progress.started) {
+                    profile.questStats.inProgressQuests++;
+                }
+            });
+        }
+    });
+    
+    const generateProfileHtml = (profile: any, index: number) => {
+        // Generate quest progress HTML
+        let questProgressHtml = '';
+        
+        if (profile.questsProgress && profile.questsProgress.length > 0) {
+            // Create a section for daily quests first
+            let dailyQuestsHtml = '';
+            let regularQuestsHtml = '';
+            
+            profile.questsProgress.forEach((progress: any) => {
+                const questInfo = getQuestInfo(progress.questId);
+                const isDaily = questInfo.completionMode === 'REPEATABLE' && questInfo.timeWindow === 'daily';
+                
+                // Format elapsed time nicely
+                const formatElapsedTime = (seconds: number) => {
+                    if (!seconds) return 'N/A';
+                    
+                    const hours = Math.floor(seconds / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    const remainingSeconds = seconds % 60;
+                    
+                    return `${hours > 0 ? hours + 'h ' : ''}${minutes > 0 ? minutes + 'm ' : ''}${remainingSeconds}s`;
+                };
+                
+                // Get the latest attempt (if using new structure)
+                const hasAttempts = progress.attempts && Array.isArray(progress.attempts) && progress.attempts.length > 0;
+                const latestAttempt = hasAttempts ? progress.attempts[progress.attempts.length - 1] : null;
+                
+                // Determine quest status from either latest attempt or legacy fields
+                const isStarted = latestAttempt ? latestAttempt.started : progress.started;
+                const isCompleted = latestAttempt ? latestAttempt.completed : progress.completed;
+                const elapsedTime = latestAttempt ? latestAttempt.elapsedTime : progress.elapsedTime;
+                const completedAt = latestAttempt ? latestAttempt.completionTime : progress.completedAt;
+                const attemptCount = progress.completionCount || (hasAttempts ? progress.attempts.length : 1);
+                
+                // Generate progress row
+                const questRow = `
+                    <tr class="${isCompleted ? 'completed-quest' : 'in-progress-quest'}">
+                        <td>${questInfo.title}</td>
+                        <td>${progress.questId}</td>
+                        <td>${questInfo.completionMode || 'FINITE'}</td>
+                        <td>${isStarted ? 'Yes' : 'No'}</td>
+                        <td>${isCompleted ? 'Yes' : 'No'}</td>
+                        <td>${formatElapsedTime(elapsedTime)}</td>
+                        <td>${completedAt ? new Date(completedAt * 1000).toLocaleString() : 'N/A'}</td>
+                        <td>${attemptCount}</td>
+                        <td>
+                            ${hasAttempts ? 
+                                `<button class="toggle-attempts" onclick="toggleAttempts('${progress.questId}-${index}')">
+                                    Show Attempts (${progress.attempts.length})
+                                </button>` 
+                                : 'N/A'
+                            }
+                        </td>
+                    </tr>
+                `;
+                
+                // Generate attempts history HTML if available
+                let attemptsHtml = '';
+                if (hasAttempts && progress.attempts.length > 1) {
+                    attemptsHtml = `
+                        <tr class="attempts-history" id="attempts-${progress.questId}-${index}" style="display: none;">
+                            <td colspan="9">
+                                <table class="attempts-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Attempt #</th>
+                                            <th>Started</th>
+                                            <th>Completed</th>
+                                            <th>Start Time</th>
+                                            <th>Completion Time</th>
+                                            <th>Elapsed Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${progress.attempts.map((attempt: any, attemptIdx: number) => `
+                                            <tr>
+                                                <td>${attempt.attemptNumber || attemptIdx + 1}</td>
+                                                <td>${attempt.started ? 'Yes' : 'No'}</td>
+                                                <td>${attempt.completed ? 'Yes' : 'No'}</td>
+                                                <td>${attempt.startTime ? new Date(attempt.startTime * 1000).toLocaleString() : 'N/A'}</td>
+                                                <td>${attempt.completionTime ? new Date(attempt.completionTime * 1000).toLocaleString() : 'N/A'}</td>
+                                                <td>${formatElapsedTime(attempt.elapsedTime)}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                    `;
+                }
+                
+                // Add to appropriate section
+                if (isDaily) {
+                    dailyQuestsHtml += questRow + attemptsHtml;
+                } else {
+                    regularQuestsHtml += questRow + attemptsHtml;
+                }
+            });
+            
+            // Add JavaScript for toggling attempts visibility
+            const toggleAttemptsScript = `
+                <script>
+                    function toggleAttempts(id) {
+                        const attemptsRow = document.getElementById('attempts-' + id);
+                        if (attemptsRow) {
+                            attemptsRow.style.display = attemptsRow.style.display === 'none' ? 'table-row' : 'none';
+                        }
+                    }
+                </script>
+            `;
+            
+            // Combine daily and regular quest sections
+            if (dailyQuestsHtml) {
+                questProgressHtml += `
+                    <div class="quest-progress-section">
+                        <h3>Daily Quests</h3>
+                        <table class="quest-progress-table">
+                            <thead>
+                                <tr>
+                                    <th>Quest</th>
+                                    <th>ID</th>
+                                    <th>Mode</th>
+                                    <th>Started</th>
+                                    <th>Completed</th>
+                                    <th>Elapsed Time</th>
+                                    <th>Completed At</th>
+                                    <th>Attempts</th>
+                                    <th>History</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${dailyQuestsHtml}
+                            </tbody>
+                        </table>
                     </div>
                 `;
-            }).join('') 
-            : '<p>No quest progress</p>';
+            }
+            
+            if (regularQuestsHtml) {
+                questProgressHtml += `
+                    <div class="quest-progress-section">
+                        <h3>Regular Quests</h3>
+                        <table class="quest-progress-table">
+                            <thead>
+                                <tr>
+                                    <th>Quest</th>
+                                    <th>ID</th>
+                                    <th>Mode</th>
+                                    <th>Started</th>
+                                    <th>Completed</th>
+                                    <th>Elapsed Time</th>
+                                    <th>Completed At</th>
+                                    <th>Attempts</th>
+                                    <th>History</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${regularQuestsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+            
+            // Add the toggle script at the end
+            questProgressHtml += toggleAttemptsScript;
+        } else {
+            questProgressHtml = '<p>No quest progress data available</p>';
+        }
         
+        // Calculate quest statistics with attempt support
+        const calculateQuestStats = (profile: any) => {
+            let stats = {
+                totalAttempts: 0,
+                completedQuests: 0,
+                dailyQuestCompletions: 0,
+                inProgressQuests: 0,
+                mostRecentCompletion: 0
+            };
+            
+            if (profile.questsProgress && Array.isArray(profile.questsProgress)) {
+                profile.questsProgress.forEach((progress: any) => {
+                    const questInfo = getQuestInfo(progress.questId);
+                    const isDaily = questInfo.completionMode === 'REPEATABLE' && questInfo.timeWindow === 'daily';
+                    
+                    // Count attempts if using new structure
+                    if (progress.attempts && Array.isArray(progress.attempts)) {
+                        stats.totalAttempts += progress.attempts.length;
+                        
+                        // Check each attempt
+                        progress.attempts.forEach((attempt: any) => {
+                            if (attempt.completed) {
+                                stats.completedQuests++;
+                                
+                                if (isDaily) {
+                                    stats.dailyQuestCompletions++;
+                                }
+                                
+                                // Track most recent completion
+                                if (attempt.completionTime && attempt.completionTime > stats.mostRecentCompletion) {
+                                    stats.mostRecentCompletion = attempt.completionTime;
+                                }
+                            } else if (attempt.started && !attempt.completed) {
+                                stats.inProgressQuests++;
+                            }
+                        });
+                    } else {
+                        // Legacy structure
+                        stats.totalAttempts++;
+                        
+                        if (progress.completed) {
+                            stats.completedQuests++;
+                            
+                            if (isDaily) {
+                                stats.dailyQuestCompletions++;
+                            }
+                            
+                            // Track most recent completion
+                            if (progress.completedAt && progress.completedAt > stats.mostRecentCompletion) {
+                                stats.mostRecentCompletion = progress.completedAt;
+                            }
+                        } else if (progress.started && !progress.completed) {
+                            stats.inProgressQuests++;
+                        }
+                    }
+                });
+            }
+            
+            return stats;
+        };
+        
+        // Use the calculated stats
+        const questStats = calculateQuestStats(profile);
+        
+        // Create HTML for profile
         return `
             <div class="profile" id="profile-${index}">
                 <div class="profile-header" onclick="toggleProfile(${index})">
-                    <h2>${profile.name || 'Anonymous User'}</h2>
-                    <div class="profile-actions">
-                        <div class="profile-status ${profile.web3 ? 'enabled' : 'disabled'}">
-                            ${profile.web3 ? 'Web3' : 'Non-Web3'}
-                        </div>
-                        <span class="expand-icon" id="expand-icon-${index}">+</span>
-                    </div>
+                    <h2>${profile.name || profile.ethAddress || 'Unnamed User'}</h2>
+                    <span class="expand-icon" id="profile-expand-icon-${index}">+</span>
                 </div>
                 
                 <div class="profile-content" id="profile-content-${index}" style="display: none;">
-                    <div class="profile-section profile-main-info">
-                        <h3>User Information</h3>
-                        <div class="profile-grid">
-                            <div class="profile-field"><strong>ETH Address:</strong> ${profile.ethAddress}</div>
-                            <div class="profile-field"><strong>IP Address:</strong> ${profile.ipAddress}</div>
-                            <div class="profile-field"><strong>Created Date:</strong> ${createdDate}</div>
-                            <div class="profile-field"><strong>Web3 User:</strong> ${profile.web3 ? 'Yes' : 'No'}</div>
+                    <div class="profile-meta">
+                        <div class="profile-meta-item"><strong>Ethereum Address:</strong> ${profile.ethAddress}</div>
+                        ${profile.registrationDate ? 
+                            `<div class="profile-meta-item"><strong>Registration Date:</strong> ${new Date(profile.registrationDate).toLocaleString()}</div>` : ''
+                        }
+                        ${profile.lastLoginDate ? 
+                            `<div class="profile-meta-item"><strong>Last Login:</strong> ${new Date(profile.lastLoginDate).toLocaleString()}</div>` : ''
+                        }
+                    </div>
+                    
+                    <div class="quest-stats-summary">
+                        <h3>Quest Statistics</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item"><strong>Total Quest Attempts:</strong> ${questStats.totalAttempts}</div>
+                            <div class="stat-item"><strong>Completed Quests:</strong> ${questStats.completedQuests}</div>
+                            <div class="stat-item"><strong>Daily Quest Completions:</strong> ${questStats.dailyQuestCompletions}</div>
+                            <div class="stat-item"><strong>In-Progress Quests:</strong> ${questStats.inProgressQuests}</div>
+                            ${questStats.mostRecentCompletion ? 
+                                `<div class="stat-item"><strong>Last Completion:</strong> ${new Date(questStats.mostRecentCompletion * 1000).toLocaleString()}</div>` : ''
+                            }
                         </div>
                     </div>
                     
-                    <div class="profile-section profile-stats">
-                        <h3>Game Statistics</h3>
-                        <div class="profile-grid">
-                            <div class="profile-stat"><strong>Deployments:</strong> ${profile.deployments || 0}</div>
-                            <div class="profile-stat"><strong>Dust:</strong> ${profile.dust || 0}</div>
-                            <div class="profile-stat"><strong>Goals:</strong> ${profile.goals || 0}</div>
-                            <div class="profile-stat"><strong>Wins:</strong> ${profile.wins || 0}</div>
-                            <div class="profile-stat"><strong>Losses:</strong> ${profile.losses || 0}</div>
-                            <div class="profile-stat"><strong>Distance:</strong> ${profile.distance || 0}</div>
-                            <div class="profile-stat"><strong>Blitz Plays:</strong> ${profile.blitzPlays || 0}</div>
-                            <div class="profile-stat"><strong>Arcade Plays:</strong> ${profile.arcadePlays || 0}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="profile-section profile-quests">
+                    <div class="quest-progress">
                         <h3>Quest Progress</h3>
-                        <div class="quest-progress-count">Total Quests: ${profile.questsProgress ? profile.questsProgress.length : 0}</div>
-                        <div class="quests-container">
-                            ${questProgressHtml}
+                        ${questProgressHtml}
+                    </div>
+
+                    ${profile.inventory ? `
+                    <div class="inventory-section">
+                        <h3>Inventory</h3>
+                        <div class="inventory-items">
+                            ${Object.entries(profile.inventory).map(([key, value]) => `
+                                <div class="inventory-item">
+                                    <strong>${key}:</strong> ${value}
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -823,7 +1117,7 @@ function generateProfilesHtml(profiles: any[]): string {
                 padding: 20px;
                 background-color: #f5f5f5;
             }
-            h1, h2, h3, h4, h5 {
+            h1, h2, h3, h4 {
                 color: #2c3e50;
                 margin-top: 0;
             }
@@ -831,23 +1125,6 @@ function generateProfilesHtml(profiles: any[]): string {
                 border-bottom: 2px solid #3498db;
                 padding-bottom: 10px;
                 margin-bottom: 20px;
-            }
-            .container {
-                background: white;
-                border-radius: 8px;
-                padding: 25px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                margin-bottom: 30px;
-            }
-            .timestamp {
-                color: #7f8c8d;
-                font-size: 0.9em;
-                margin-bottom: 20px;
-            }
-            .info {
-                color: #2980b9;
-                margin-bottom: 15px;
-                font-weight: bold;
             }
             .profile {
                 background: white;
@@ -869,167 +1146,110 @@ function generateProfilesHtml(profiles: any[]): string {
                 background-color: #f8f9fa;
                 border-radius: 8px;
             }
-            .profile-actions {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }
-            .profile-status, .quest-status {
-                padding: 5px 10px;
-                border-radius: 4px;
-                font-size: 0.9em;
-                font-weight: bold;
-            }
             .expand-icon {
                 font-size: 24px;
                 font-weight: bold;
                 color: #3498db;
                 transition: transform 0.3s ease;
             }
-            .enabled {
-                background-color: #2ecc71;
-                color: white;
-            }
-            .disabled {
-                background-color: #e74c3c;
-                color: white;
-            }
-            .completed {
-                color: #2ecc71;
-                font-weight: bold;
-            }
-            .incomplete {
-                color: #e74c3c;
-                font-weight: bold;
-            }
-            .profile-section {
-                margin: 20px 0;
+            .profile-meta {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 10px;
+                margin: 15px 0;
                 padding: 15px;
                 background-color: #f8f9fa;
                 border-radius: 6px;
             }
-            .profile-grid {
+            .profile-meta-item {
+                margin-bottom: 5px;
+            }
+            .stats-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-                gap: 10px;
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                gap: 15px;
+                margin: 15px 0;
             }
-            .profile-field, .profile-stat {
-                padding: 8px;
-                border-bottom: 1px dashed #e1e1e1;
-            }
-            .profile-quest {
-                background-color: white;
+            .stat-item {
+                padding: 10px;
+                background-color: #f8f9fa;
                 border-radius: 6px;
-                padding: 15px;
-                margin-bottom: 15px;
-                border: 1px solid #e1e1e1;
+                border-left: 3px solid #3498db;
             }
-            .quest-meta {
+            .quest-progress-section {
+                margin-bottom: 20px;
+            }
+            .quest-progress-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+            }
+            .quest-progress-table th, .quest-progress-table td {
+                padding: 10px;
+                border: 1px solid #ddd;
+                text-align: left;
+            }
+            .quest-progress-table th {
+                background-color: #f2f2f2;
+                font-weight: bold;
+            }
+            .quest-progress-table tr:nth-child(even) {
+                background-color: #f9f9f9;
+            }
+            .quest-progress-table tr:hover {
+                background-color: #f0f0f0;
+            }
+            .completed-quest {
+                background-color: #d5f5e3 !important;
+            }
+            .in-progress-quest {
+                background-color: #fdebd0 !important;
+            }
+            .inventory-section {
+                margin-top: 20px;
+            }
+            .inventory-items {
                 display: grid;
                 grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
                 gap: 10px;
-                padding: 15px;
+                margin-top: 10px;
+            }
+            .inventory-item {
+                padding: 10px;
                 background-color: #f8f9fa;
                 border-radius: 6px;
-                margin: 15px 0;
-            }
-            .quest-meta-item {
-                margin-bottom: 5px;
-            }
-            .profile-step {
-                background-color: #f8f9fa;
-                border-radius: 6px;
-                padding: 15px;
-                margin-bottom: 15px;
-                border-left: 4px solid #3498db;
-            }
-            .step-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 10px;
-            }
-            .profile-task {
-                background-color: white;
-                border-radius: 6px;
-                padding: 12px;
-                margin-bottom: 10px;
                 border: 1px solid #e1e1e1;
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-                gap: 10px;
-            }
-            .tasks-container {
-                margin-top: 15px;
             }
             .profile-divider {
-                margin: 30px 0;
                 border: 0;
                 height: 1px;
-                background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0));
-            }
-            .quest-progress-count {
-                background-color: #34495e;
-                color: white;
-                padding: 10px 15px;
-                border-radius: 4px;
-                display: inline-block;
-                margin-bottom: 20px;
-            }
-            .total-profiles {
-                background-color: #34495e;
-                color: white;
-                padding: 10px 15px;
-                border-radius: 4px;
-                display: inline-block;
-                margin-bottom: 20px;
+                background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0));
+                margin: 30px 0;
             }
         </style>
         <script>
             function toggleProfile(index) {
                 const content = document.getElementById('profile-content-' + index);
-                const icon = document.getElementById('expand-icon-' + index);
+                const icon = document.getElementById('profile-expand-icon-' + index);
                 
                 if (content.style.display === 'none') {
                     content.style.display = 'block';
-                    icon.textContent = '-';
+                    icon.innerHTML = '-';
                     icon.style.transform = 'rotate(180deg)';
                 } else {
                     content.style.display = 'none';
-                    icon.textContent = '+';
-                    icon.style.transform = 'rotate(0deg)';
-                }
-            }
-            
-            function toggleProfileQuest(profileIndex, questIndex) {
-                const content = document.getElementById('profile-quest-content-' + profileIndex + '-' + questIndex);
-                const icon = document.getElementById('profile-expand-icon-' + profileIndex + '-' + questIndex);
-                
-                // Stop event propagation to prevent parent toggle from firing
-                event.stopPropagation();
-                
-                if (content.style.display === 'none') {
-                    content.style.display = 'block';
-                    icon.textContent = '-';
-                    icon.style.transform = 'rotate(180deg)';
-                } else {
-                    content.style.display = 'none';
-                    icon.textContent = '+';
+                    icon.innerHTML = '+';
                     icon.style.transform = 'rotate(0deg)';
                 }
             }
         </script>
     </head>
     <body>
-        <h1>Profile Data</h1>
-        <div class="container">
-            <div class="timestamp">Generated on: ${new Date().toLocaleString()}</div>
-            <div class="info">Displaying profile data</div>
-            <div class="total-profiles">Total Profiles: ${profilesArray.length}</div>
-            <div class="profiles-container">
-                ${profilesHtml}
-            </div>
-        </div>
+        <h1>User Profiles</h1>
+        <p class="timestamp">Generated on: ${new Date().toLocaleString()}</p>
+        <div class="info">Total profiles: ${profilesArray.length}</div>
+        
+        ${profilesHtml}
     </body>
     </html>
     `;

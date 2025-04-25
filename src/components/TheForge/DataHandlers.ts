@@ -1,9 +1,10 @@
 import { Client } from "colyseus";
 import { ephemeralCodes, QuestRoom } from "./QuestRoom";
-import { QuestDefinition, StepDefinition, TaskDefinition } from "./utils/types";
+import { QuestDefinition, StepDefinition, TaskDefinition, QuestAttempt } from "./utils/types";
 import { QUEST_TEMPLATES_CACHE_KEY, PROFILES_CACHE_KEY } from "../../utils/initializer";
 import { getCache } from "../../utils/cache";
 import { v4 } from "uuid";
+import { sanitizeUserQuestData } from "./utils/functions";
 
 export function handleQuestOutline(room:QuestRoom, client:Client, payload:any){
     console.log('handling quest outline', payload)
@@ -33,6 +34,64 @@ export function handleQuestOutline(room:QuestRoom, client:Client, payload:any){
     };
 
     client.send("QUEST_OUTLINE", {questId:questId, code:code})
+    } else {
+        // If not in creator room, this is a player request
+        if (!room.questDefinition) {
+            client.send("QUEST_ERROR", { message: "No quest loaded" });
+            return;
+        }
+        
+        if (questId !== room.questDefinition.questId) {
+            client.send("QUEST_ERROR", { message: "Quest ID mismatch" });
+            return;
+        }
+        
+        // Find the user's profile
+        const profiles = getCache(PROFILES_CACHE_KEY);
+        const profile = profiles.find((p: any) => p.ethAddress === client.userData.userId);
+        if (!profile) {
+            client.send("QUEST_ERROR", { message: "User profile not found" });
+            return;
+        }
+        
+        // Get user quest info
+        const userQuestInfo = profile.questsProgress?.find(
+            (q: any) => q.questId === questId && q.questVersion === room.questDefinition!.version
+        );
+        
+        // Sanitize the user quest info using the same function from Handlers.ts
+        const sanitizedUserQuestInfo = userQuestInfo 
+            ? sanitizeUserQuestData(room, userQuestInfo) 
+            : null;
+            
+        // Sanitize quest data to remove IDs
+        const sanitizedQuest = {
+            questId: room.questDefinition.questId,
+            title: room.questDefinition.title,
+            completionMode: room.questDefinition.completionMode,
+            enabled: room.questDefinition.enabled,
+            maxCompletions: room.questDefinition.maxCompletions,
+            startTime: room.questDefinition.startTime,
+            endTime: room.questDefinition.endTime,
+            version: room.questDefinition.version,
+            steps: room.questDefinition.steps.map((step: StepDefinition) => ({
+                stepId: step.stepId,
+                name: step.name,
+                tasks: step.tasks.map((task: TaskDefinition) => ({
+                    taskId: task.taskId,
+                    description: task.description,
+                    requiredCount: task.requiredCount,
+                    metaverse: task.metaverse
+                }))
+            }))
+        };
+        
+        // Send the quest and user info back to the client
+        client.send("QUEST_OUTLINE", { 
+            questId, 
+            quest: sanitizedQuest, 
+            userQuestInfo: sanitizedUserQuestInfo 
+        });
     }
 }
   
@@ -68,7 +127,7 @@ export function handleQuestStats(room:QuestRoom, client: Client, payload: any) {
         if (!info) continue;
         
         if (completedOnly && !info.completed) {
-        continue;
+          continue;
         }
         
         // compute elapsedTime
@@ -76,45 +135,104 @@ export function handleQuestStats(room:QuestRoom, client: Client, payload: any) {
         
         // count how many steps completed
         let stepsCompleted = 0;
-        let totalSteps = info.steps.length;
-        for (const step of info.steps) {
-        if (step.completed) stepsCompleted++;
+        let totalSteps = info.steps?.length || 0;
+        if (info.steps) {
+          for (const step of info.steps) {
+            if (step.completed) stepsCompleted++;
+          }
+        }
+        
+        // Get the attempts data if available
+        const attempts = info.attempts || [];
+        
+        // Get latest attempt information
+        const latestAttempt = attempts.length > 0 ? attempts[attempts.length - 1] : null;
+        
+        // Use latest attempt data if available
+        if (latestAttempt) {
+          // Override values with latest attempt if available
+          elapsedTime = latestAttempt.elapsedTime || elapsedTime;
+          
+          // If latest attempt has its own steps, count them
+          if (latestAttempt.steps) {
+            stepsCompleted = 0;
+            totalSteps = latestAttempt.steps.length;
+            for (const step of latestAttempt.steps) {
+              if (step.completed) stepsCompleted++;
+            }
+          }
         }
         
         userData.push({
-        userId: profile.ethAddress,
-        name: profile.name,
-        completed: info.completed,
-        startTime: info.startTime,
-        timeCompleted: info.timeCompleted,
-        elapsedTime,
-        stepsCompleted,
-        totalSteps,
-        steps: info.steps.map((step: any) => {
-            // Find matching step in quest definition
-            const stepDef = quest.steps.find((s: StepDefinition) => s.stepId === step.stepId);
-            if (!stepDef) return null;
-            
-            return {
-            name: stepDef.name,
-            completed: step.completed,
-            stepId: step.stepId,
-            tasks: step.tasks.map((task: any) => {
-                // Find matching task in step definition
-                const taskDef = stepDef.tasks.find((t: TaskDefinition) => t.taskId === task.taskId);
-                if (!taskDef) return null;
-                
-                return {
-                taskId: task.taskId,
-                description: taskDef.description,
-                count: task.count,
-                requiredCount: taskDef.requiredCount,
-                completed: task.completed,
-                metaverse: taskDef.metaverse
-                };
+          userId: profile.ethAddress,
+          name: profile.name,
+          completed: info.completed,
+          startTime: info.startTime,
+          timeCompleted: info.timeCompleted,
+          elapsedTime,
+          stepsCompleted,
+          totalSteps,
+          // Include attempts array for new attempt-based tracking
+          attempts: attempts.map((attempt: any) => ({
+            attemptId: attempt.attemptId,
+            attemptNumber: attempt.attemptNumber,
+            startTime: attempt.startTime,
+            completionTime: attempt.completionTime,
+            elapsedTime: attempt.elapsedTime,
+            completed: attempt.completed,
+            started: attempt.started,
+            status: attempt.status,
+            steps: attempt.steps?.map((step: any) => {
+              // Find matching step in quest definition
+              const stepDef = quest.steps.find((s: StepDefinition) => s.stepId === step.stepId);
+              if (!stepDef) return null;
+              
+              return {
+                stepId: step.stepId,
+                name: stepDef.name,
+                completed: step.completed,
+                tasks: step.tasks?.map((task: any) => {
+                  // Find matching task in step definition
+                  const taskDef = stepDef.tasks.find((t: TaskDefinition) => t.taskId === task.taskId);
+                  if (!taskDef) return null;
+                  
+                  return {
+                    taskId: task.taskId,
+                    description: taskDef.description,
+                    count: task.count,
+                    requiredCount: taskDef.requiredCount,
+                    completed: task.completed,
+                    metaverse: taskDef.metaverse
+                  };
+                }).filter(Boolean) // Remove any null entries
+              };
             }).filter(Boolean) // Remove any null entries
-            };
-        }).filter(Boolean) // Remove any null entries
+          })),
+          steps: info.steps?.map((step: any) => {
+              // Find matching step in quest definition
+              const stepDef = quest.steps.find((s: StepDefinition) => s.stepId === step.stepId);
+              if (!stepDef) return null;
+              
+              return {
+                name: stepDef.name,
+                completed: step.completed,
+                stepId: step.stepId,
+                tasks: step.tasks?.map((task: any) => {
+                    // Find matching task in step definition
+                    const taskDef = stepDef.tasks.find((t: TaskDefinition) => t.taskId === task.taskId);
+                    if (!taskDef) return null;
+                    
+                    return {
+                      taskId: task.taskId,
+                      description: taskDef.description,
+                      count: task.count,
+                      requiredCount: taskDef.requiredCount,
+                      completed: task.completed,
+                      metaverse: taskDef.metaverse
+                    };
+                }).filter(Boolean) // Remove any null entries
+              };
+          }).filter(Boolean) // Remove any null entries
         });
     }
     
@@ -175,7 +293,7 @@ export function handleQuestStats(room:QuestRoom, client: Client, payload: any) {
         if (!info) continue;
         
         if (completedOnly && !info.completed) {
-        continue;
+          continue;
         }
         
         // compute elapsedTime
@@ -183,43 +301,104 @@ export function handleQuestStats(room:QuestRoom, client: Client, payload: any) {
         
         // count how many steps completed
         let stepsCompleted = 0;
-        let totalSteps = info.steps.length;
-        for (const step of info.steps) {
-        if (step.completed) stepsCompleted++;
+        let totalSteps = info.steps?.length || 0;
+        if (info.steps) {
+          for (const step of info.steps) {
+            if (step.completed) stepsCompleted++;
+          }
+        }
+        
+        // Get the attempts data if available
+        const attempts = info.attempts || [];
+        
+        // Get latest attempt information
+        const latestAttempt = attempts.length > 0 ? attempts[attempts.length - 1] : null;
+        
+        // Use latest attempt data if available
+        if (latestAttempt) {
+          // Override values with latest attempt if available
+          elapsedTime = latestAttempt.elapsedTime || elapsedTime;
+          
+          // If latest attempt has its own steps, count them
+          if (latestAttempt.steps) {
+            stepsCompleted = 0;
+            totalSteps = latestAttempt.steps.length;
+            for (const step of latestAttempt.steps) {
+              if (step.completed) stepsCompleted++;
+            }
+          }
         }
         
         userData.push({
-        userId: profile.ethAddress,
-        name: profile.name,
-        completed: info.completed,
-        startTime: info.startTime,
-        timeCompleted: info.timeCompleted,
-        elapsedTime,
-        stepsCompleted,
-        totalSteps,
-        steps: info.steps.map((step: any) => {
-            // Find matching step in quest definition
-            const stepDef = room.questDefinition.steps.find((s: StepDefinition) => s.stepId === step.stepId);
-            if (!stepDef) return null;
-            
-            return {
-            name: stepDef.name,
-            completed: step.completed,
-            tasks: step.tasks.map((task: any) => {
-                // Find matching task in step definition
-                const taskDef = stepDef.tasks.find((t: TaskDefinition) => t.taskId === task.taskId);
-                if (!taskDef) return null;
-                
-                return {
-                description: taskDef.description,
-                count: task.count,
-                requiredCount: taskDef.requiredCount,
-                completed: task.completed,
-                metaverse: taskDef.metaverse
-                };
+          userId: profile.ethAddress,
+          name: profile.name,
+          completed: info.completed,
+          startTime: info.startTime,
+          timeCompleted: info.timeCompleted,
+          elapsedTime,
+          stepsCompleted,
+          totalSteps,
+          // Include attempts array for new attempt-based tracking
+          attempts: attempts.map((attempt: QuestAttempt) => ({
+            attemptId: attempt.attemptId,
+            attemptNumber: attempt.attemptNumber,
+            startTime: attempt.startTime,
+            completionTime: attempt.completionTime,
+            elapsedTime: attempt.elapsedTime,
+            completed: attempt.completed,
+            started: attempt.started,
+            status: attempt.status,
+            steps: attempt.steps?.map((step: any) => {
+              // Find matching step in quest definition
+              const stepDef = room.questDefinition!.steps.find((s: StepDefinition) => s.stepId === step.stepId);
+              if (!stepDef) return null;
+              
+              return {
+                stepId: step.stepId,
+                name: stepDef.name,
+                completed: step.completed,
+                tasks: step.tasks?.map((task: any) => {
+                  // Find matching task in step definition
+                  const taskDef = stepDef.tasks.find((t: TaskDefinition) => t.taskId === task.taskId);
+                  if (!taskDef) return null;
+                  
+                  return {
+                    taskId: task.taskId,
+                    description: taskDef.description,
+                    count: task.count,
+                    requiredCount: taskDef.requiredCount,
+                    completed: task.completed,
+                    metaverse: taskDef.metaverse
+                  };
+                }).filter(Boolean) // Remove any null entries
+              };
             }).filter(Boolean) // Remove any null entries
-            };
-        }).filter(Boolean) // Remove any null entries
+          })),
+          steps: info.steps?.map((step: any) => {
+              // Find matching step in quest definition
+              const stepDef = room.questDefinition!.steps.find((s: StepDefinition) => s.stepId === step.stepId);
+              if (!stepDef) return null;
+              
+              return {
+                name: stepDef.name,
+                completed: step.completed,
+                stepId: step.stepId,
+                tasks: step.tasks?.map((task: any) => {
+                    // Find matching task in step definition
+                    const taskDef = stepDef.tasks.find((t: TaskDefinition) => t.taskId === task.taskId);
+                    if (!taskDef) return null;
+                    
+                    return {
+                      taskId: task.taskId,
+                      description: taskDef.description,
+                      count: task.count,
+                      requiredCount: taskDef.requiredCount,
+                      completed: task.completed,
+                      metaverse: taskDef.metaverse
+                    };
+                }).filter(Boolean) // Remove any null entries
+              };
+          }).filter(Boolean) // Remove any null entries
         });
     }
     

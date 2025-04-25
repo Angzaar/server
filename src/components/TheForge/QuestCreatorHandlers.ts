@@ -13,10 +13,21 @@ import { QuestRoom } from "./QuestRoom";
  * Using a random UUID for questId. This is optional - you could let the user pick an ID.
  */
 export function handleCreateQuest(client: Client, payload: any) {
-    const { questType, enabled, steps, title, startTime, endTime } = payload;
+    const { 
+      completionMode, 
+      maxCompletions, 
+      enabled, 
+      steps, 
+      title, 
+      startTime, 
+      endTime, 
+      timeWindow, 
+      autoReset 
+    } = payload;
+    
     if (!steps) {
-    client.send("QUEST_ERROR", { message: "Missing required fields (steps)." });
-    return;
+      client.send("QUEST_ERROR", { message: "Missing required fields (steps)." });
+      return;
     }
 
     const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
@@ -24,31 +35,28 @@ export function handleCreateQuest(client: Client, payload: any) {
 
     const existingQuest = quests.find((q: QuestDefinition) => q.questId === questId);
     if (existingQuest) {
-    client.send("QUEST_ERROR", { message: `Quest '${questId}' already exists.` });
-    return;
+      client.send("QUEST_ERROR", { message: `Quest '${questId}' already exists.` });
+      return;
     }
 
-    // Convert to new format
-    let completionMode: CompletionMode = 'FINITE';
-    let maxCompletions = 1;
-    
-    if (payload.questType === 'OPEN_ENDED') {
-    completionMode = 'REPEATABLE';
-    maxCompletions = INFINITE;
-    }
+    // For FINITE quests, always set maxCompletions to 1
+    const finalMaxCompletions = completionMode === 'FINITE' ? 1 : maxCompletions;
 
     const newQuest: QuestDefinition = {
-    questId,
-    version: 1, 
-    enabled: enabled,
-    startTrigger: payload.startTrigger ?? 'EXPLICIT',
-    title: title ?? "Untitled Quest",
-    creator: client.userData.userId,
-    steps: steps || [],
-    startTime,
-    endTime,
-    completionMode,
-    maxCompletions
+      questId,
+      version: 1, 
+      enabled: enabled,
+      startTrigger: payload.startTrigger ?? 'EXPLICIT',
+      title: title ?? "Untitled Quest",
+      creator: client.userData.userId,
+      steps: steps || [],
+      startTime,
+      endTime,
+      completionMode,
+      maxCompletions: finalMaxCompletions,
+      // Add repeatable quest fields
+      timeWindow,
+      autoReset
     };
 
     quests.push(newQuest);
@@ -62,54 +70,93 @@ export function handleCreateQuest(client: Client, payload: any) {
  **************************************/
 export function handleEditQuest(client: Client, payload: any) {
     console.log('handle queset edit', payload)
-    const { questId, questType, startTrigger, title, steps, enabled, allowReplay, startTime, endTime } = payload;
+    const { 
+      questId, 
+      questType, 
+      startTrigger, 
+      title, 
+      steps, 
+      enabled, 
+      allowReplay, 
+      startTime, 
+      endTime,
+      completionMode,
+      maxCompletions,
+      timeWindow,
+      autoReset
+    } = payload;
 
     // 1) find in TEMPLATES_FILE_CACHE_KEY
     const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
     const quest = quests.find((q: QuestDefinition) => q.questId === questId);
     if (!quest) {
-    client.send("QUEST_ERROR", { message: `Quest '${questId}' not found in cache.` });
-    return;
+      client.send("QUEST_ERROR", { message: `Quest '${questId}' not found in cache.` });
+      return;
     }
 
     // Only creator can edit
     if (client.userData.userId !== quest.creator) {
-    client.send("QUEST_ERROR", { message: "Only the quest creator can edit this quest." });
-    return;
+      client.send("QUEST_ERROR", { message: "Only the quest creator can edit this quest." });
+      return;
     }
 
     console.log('applying quest partial changes')
 
     // 2) apply partial changes
     if (typeof title === 'string') {
-    quest.title = title;
+      quest.title = title;
     }
     if (typeof questType === 'string') {
-    quest.questType = questType;
+      quest.questType = questType;
     }
     if (typeof startTrigger === 'string') {
-    quest.startTrigger = startTrigger;
+      quest.startTrigger = startTrigger;
     }
     if (Array.isArray(steps)) {
-    quest.steps = steps;
+      quest.steps = steps;
     }
     if (typeof enabled === 'boolean') {
-    quest.enabled = enabled;
+      quest.enabled = enabled;
     }
     if (typeof allowReplay === 'boolean') {
-    quest.allowReplay = allowReplay;
+      quest.allowReplay = allowReplay;
+    }
+    
+    // Add completionMode handling
+    if (typeof completionMode === 'string') {
+      quest.completionMode = completionMode as CompletionMode;
+      
+      // If completionMode is FINITE, set maxCompletions to 1
+      if (completionMode === 'FINITE') {
+        quest.maxCompletions = 1;
+      }
+    }
+    
+    // Add maxCompletions handling (only for non-FINITE quests)
+    if (typeof maxCompletions === 'number' && quest.completionMode !== 'FINITE') {
+      quest.maxCompletions = maxCompletions;
+    }
+    
+    // Add timeWindow handling
+    if (payload.hasOwnProperty("timeWindow")) {
+      quest.timeWindow = timeWindow;
+    }
+    
+    // Add autoReset handling
+    if (payload.hasOwnProperty("autoReset")) {
+      quest.autoReset = autoReset;
     }
 
     if(payload.hasOwnProperty("startTime")){
-    quest.startTime = startTime
+      quest.startTime = startTime
     }else{
-    delete quest.startTime 
+      delete quest.startTime 
     }
 
     if(payload.hasOwnProperty("endTime")){
-    quest.endTime = payload.endTime
+      quest.endTime = payload.endTime
     }else{
-    quest.endTime = endTime
+      quest.endTime = endTime
     }
 
     // 3) confirm
@@ -120,10 +167,10 @@ export function handleEditQuest(client: Client, payload: any) {
 export async function handleResetQuest(room:QuestRoom, client: Client, payload: any) {
     if (!room.questDefinition) return;
 
-    const { questId, enabled } = payload;
+    const { questId, enabled, userId = null } = payload;
 
     if (client.userData.userId !== room.questDefinition.creator) {
-        client.send("QUEST_ERROR", { message: "Only the quest creator can end this quest." });
+        client.send("QUEST_ERROR", { message: "Only the quest creator can reset this quest." });
         return;
     }
 
@@ -131,7 +178,24 @@ export async function handleResetQuest(room:QuestRoom, client: Client, payload: 
     syncQuestToCache(questId, room.questDefinition)
 
     await forceEndQuestForAll(room, questId, room.questDefinition.version)
-    forceResetQuestData(room, questId, true)
+    
+    // If userId is specified and not "all", reset only for that user
+    if (userId && userId !== "all") {
+        forceResetQuestData(room, questId, false, userId);
+        client.send("QUEST_RESET", { 
+            questId, 
+            userId,
+            message: `Quest reset for user ${userId}`
+        });
+    } else {
+        // Reset for all users
+        forceResetQuestData(room, questId, true);
+        client.send("QUEST_RESET", { 
+            questId, 
+            message: "Quest reset for all users"
+        });
+    }
+    
     return;
 }
  

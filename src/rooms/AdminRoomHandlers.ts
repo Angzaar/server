@@ -1,7 +1,7 @@
 import { Client, Room } from "colyseus";
 import { cacheSyncToFile, getCache, loadCache, updateCache } from "../utils/cache";
 import { Profile } from "../utils/types";
-import { ADMINS_FILE_CACHE_KEY, ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CUSTOM_ITEMS_FILE_CACHE_KEY, LOCATIONS_CACHE_KEY, NPCS_FILE_CACHE_KEY, PROFILES_CACHE_KEY } from "../utils/initializer";
+import { ADMINS_FILE_CACHE_KEY, ART_GALLERY_CACHE_KEY, ART_GALLERY_FILE, CUSTOM_ITEMS_FILE_CACHE_KEY, LOCATIONS_CACHE_KEY, NPCS_FILE_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE } from "../utils/initializer";
 import { v4 } from "uuid";
 import { addNPC, disableNPC, enableNPC, setNPCGrid, startWalkingNPC, stopWalkingNPC, updateNPC } from "../utils/npc";
 import { artGalleryRooms } from "./";
@@ -288,4 +288,46 @@ try {
   console.error("Error handling reservation:", error);
   client.send("error", { message: "Internal server error. Please try again later." });
 }
+};
+
+export const handleGetProfiles = async (client: Client) => { 
+  console.log('getting profiles')
+  try {
+    await validateAdmin(client)
+    client.send('get-profiles', getCache(PROFILES_CACHE_KEY))
+  } catch (error) {
+    console.error("Error handling get profiles:", error);
+    client.send("error", { message: "Internal server error. Please try again later." });
+  }
+};
+
+export const handleProfileUpdate = async (client: Client, updatedProfile: any) => { 
+  console.log('handle profile update', updatedProfile)
+  try {
+    await validateAdmin(client)
+    
+    if (!updatedProfile || !updatedProfile.ethAddress) {
+      client.send("error", { message: "Invalid profile data" });
+      return;
+    }
+
+    let profiles = getCache(PROFILES_CACHE_KEY)
+    let profileIndex = profiles.findIndex((profile: any) => profile.ethAddress === updatedProfile.ethAddress)
+    
+    if (profileIndex === -1) {
+      client.send("error", { message: "Profile not found" });
+      return;
+    }
+
+    // Update the profile
+    profiles[profileIndex] = updatedProfile;
+    updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
+    
+    // Send confirmation back to client
+    client.send('profile-update', updatedProfile);
+    
+  } catch (error) {
+    console.error("Error handling profile update:", error);
+    client.send("error", { message: "Internal server error. Please try again later." });
+  }
 };

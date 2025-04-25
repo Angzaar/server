@@ -2,12 +2,19 @@ import { getLeaderboard } from "../components/BasePlayerState";
 import { getRewardTransactions, getUserRewardTransactions, getQuestRewardTransactions } from "../components/TheForge/RewardSystem";
 import { QuestDefinition, StepDefinition, TaskDefinition } from "../components/TheForge/utils/types";
 import { getCache } from "../utils/cache";
-import { PROFILES_CACHE_KEY } from "../utils/initializer";
-import { handleQuestData, handleQuestLeaderboard, handleQuestOutline, handleSingleUserQuestData } from "../utils/questing";
+import { PROFILES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY, REWARDS_CACHE_KEY } from "../utils/initializer";
+import { handleMarketplaceFilters } from "../utils/marketplace";
+import { handleMarketplaceItemDetails } from "../utils/marketplace";
+import { handleMarketplaceRewards } from "../utils/marketplace";
+import { handleQuestData, handleQuestLeaderboard, handleQuestOutline, handleRewardsData, handleSingleUserQuestData } from "../utils/questing";
 import { getPlazaLocation, getPlazaLocationCurrentReservation, getPlazaReservation, getUserPlazaReservations } from "../utils/reservations";
 import { authentication } from "./admin";
+import tokenRoutes from "../utils/tokenRoutes";
 
 export function apiRouter(router:any){
+    // Mount token routes
+    router.use('/api/tokens', tokenRoutes);
+
     router.get('/api/locations/:location/:action/:id', async (req:any, res:any) => {
       console.log('getting angzaar api router', req.params)
       if(!req.params || !req.params.location || !req.params.action || !req.params.id){
@@ -96,8 +103,28 @@ export function apiRouter(router:any){
     handleQuestLeaderboard(req, res)
   });
 
+  // Public rewards endpoint
+  router.get('/rewards', (req:any, res:any) => {
+    handleRewardsData(req, res)
+  });
+
+// Marketplace endpoint to fetch, filter, and sort rewards
+router.get('/api/marketplace/rewards', (req:any, res:any) => {
+  handleMarketplaceRewards(req, res);
+});
+
+// Get single marketplace item details
+router.get('/api/marketplace/rewards/:id', (req:any, res:any) => {
+  handleMarketplaceItemDetails(req, res);
+});
+
+// Get available marketplace categories, filters and metadata
+router.get('/api/marketplace/filters', (req:any, res:any) => {
+  handleMarketplaceFilters(req, res);
+});
+
   // Reward transactions endpoint
-  router.get('/api/rewards/transactions', authentication, (req:any, res:any) => {
+  router.get('/api/rewards/transactions', (req:any, res:any) => {
     const format = req.query.format; // e.g. 'html'
     const userId = req.query.userId;  // optional filter
     const questId = req.query.questId; // optional filter
@@ -123,14 +150,16 @@ export function apiRouter(router:any){
     // Limit the number of transactions returned
     transactions = transactions.slice(0, limit);
 
-    if (format === 'html') {
+    if (format === 'json') {
+      return res.json(transactions);
+    } else {
+      // Get quest templates for name lookups
+      const quests = getCache(QUEST_TEMPLATES_CACHE_KEY) || [];
+      
       // Return HTML format
-      const html = buildRewardTransactionsHTML(transactions);
+      const html = buildRewardTransactionsHTML(transactions, quests);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       return res.send(html);
-    } else {
-      // Default to JSON
-      return res.json(transactions);
     }
   });
 }
@@ -139,12 +168,99 @@ export function apiRouter(router:any){
  * Build HTML view for reward transactions
  * 
  * @param transactions Array of reward transactions
+ * @param quests Array of quest templates for name lookups
  * @returns HTML string
  */
-function buildRewardTransactionsHTML(transactions: any[]): string {
+function buildRewardTransactionsHTML(transactions: any[], quests: QuestDefinition[]): string {
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
   };
+  
+  /* 
+  // Create a lookup map for quests, steps, and tasks
+  const questMap = new Map();
+  quests.forEach(quest => {
+    const stepMap = new Map();
+    
+    if (quest.steps && Array.isArray(quest.steps)) {
+      quest.steps.forEach((step: StepDefinition) => {
+        const taskMap = new Map();
+        
+        if (step.tasks && Array.isArray(step.tasks)) {
+          step.tasks.forEach((task: TaskDefinition) => {
+            taskMap.set(task.taskId, {
+              description: task.description || task.taskId,
+              metaverse: task.metaverse
+            });
+          });
+        }
+        
+        stepMap.set(step.stepId, {
+          name: step.name || step.stepId,
+          tasks: taskMap
+        });
+      });
+    }
+    
+    questMap.set(quest.questId, {
+      title: quest.title || quest.questId,
+      steps: stepMap
+    });
+  });
+  
+  // Helper function to get quest/step/task info
+  const getQuestInfo = (transaction: any) => {
+    const quest = questMap.get(transaction.questId);
+    if (!quest) {
+      return `Quest: ${transaction.questId}`;
+    }
+    
+    let result = `Quest: <strong>${quest.title}</strong>`;
+    
+    if (transaction.stepId) {
+      const step = quest.steps.get(transaction.stepId);
+      if (step) {
+        result += `<br>Step: ${step.name}`;
+        
+        if (transaction.taskId) {
+          const task = step.tasks.get(transaction.taskId);
+          if (task) {
+            result += `<br>Task: ${task.description}`;
+            if (task.metaverse) {
+              result += ` <span title="Metaverse" style="color: var(--cyber-info);">(${task.metaverse})</span>`;
+            }
+          } else {
+            result += `<br>Task: ${transaction.taskId}`;
+          }
+        }
+      } else {
+        result += `<br>Step: ${transaction.stepId}`;
+        if (transaction.taskId) {
+          result += `<br>Task: ${transaction.taskId}`;
+        }
+      }
+    }
+    
+    return result;
+  };
+  */
+
+  /* 
+  // Simple function to show just the quest ID
+  const getQuestInfo = (transaction: any) => {
+    let result = `Quest: ${transaction.questId}`;
+    
+    if (transaction.stepId) {
+      result += `<br>Step: ${transaction.stepId}`;
+      
+      if (transaction.taskId) {
+        result += `<br>Task: ${transaction.taskId}`;
+      }
+    }
+    
+    return result;
+  };
+  */
 
   let html = `<!DOCTYPE html>
 <html>
@@ -152,80 +268,250 @@ function buildRewardTransactionsHTML(transactions: any[]): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Reward Transactions</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #6366f1;
-      --primary-dark: #4f46e5;
-      --secondary: #8b5cf6;
-      --light: #f9fafb;
-      --dark: #1f2937;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
+      /* Cyberpunk Theme Colors */
+      --cyber-bg-dark: #0d1117;
+      --cyber-bg-medium: #161b22;
+      --cyber-bg-light: #21262d;
+      --cyber-text-bright: #f0f6fc;
+      --cyber-text-medium: #c9d1d9;
+      --cyber-text-dim: #8b949e;
+      --cyber-neon-teal: #00ffd5;
+      --cyber-neon-teal-glow: rgba(0, 255, 213, 0.7);
+      --cyber-accent: #ff00aa;
+      --cyber-accent-glow: rgba(255, 0, 170, 0.7);
+      --cyber-border: rgba(30, 37, 47, 0.9);
+      --cyber-success: #00ff9d;
+      --cyber-warning: #ffae00;
+      --cyber-error: #ff3864;
+      --cyber-info: #38b6ff;
     }
     
-    body {
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      line-height: 1.6;
-      color: var(--dark);
-      background-color: #f3f4f6;
+    /* Reset and base styles */
+    *, *::before, *::after {
       margin: 0;
       padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Rajdhani', sans-serif;
+      background-color: var(--cyber-bg-dark);
+      color: var(--cyber-text-medium);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--cyber-text-bright);
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--cyber-bg-medium);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--cyber-neon-teal);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--cyber-accent);
+    }
+
+    /* Global Link styles */
+    a {
+      color: var(--cyber-neon-teal);
+      text-decoration: none;
+      transition: all 0.3s ease;
+    }
+
+    a:hover {
+      color: var(--cyber-text-bright);
+      text-shadow: 0 0 8px var(--cyber-neon-teal-glow);
     }
     
     .container {
       max-width: 1200px;
-      margin: 0 auto;
+      margin: 2rem auto;
+      padding: 0;
+    }
+    
+    .quests-card {
+      background-color: var(--cyber-bg-medium);
+      border: 1px solid var(--cyber-border);
+      border-radius: 4px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .quests-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--cyber-neon-teal), transparent);
+      z-index: 1;
+    }
+    
+    .card-header {
+      background-color: var(--cyber-bg-light);
+      border-bottom: 1px solid var(--cyber-border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--cyber-text-bright);
+    }
+    
+    .card-body {
       padding: 1.5rem;
-      background-color: white;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      border-radius: 8px;
+      background-color: var(--cyber-bg-medium);
+      color: var(--cyber-text-medium);
     }
     
-    header {
-      background-color: var(--primary);
-      color: white;
-      padding: 1.5rem;
-      border-radius: 8px 8px 0 0;
-      margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+    .glitch-text {
+      position: relative;
+      color: var(--cyber-text-bright);
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: 2px;
     }
     
-    h1 {
-      margin: 0;
-      font-size: 2rem;
-      font-weight: 700;
+    .filters {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background-color: var(--cyber-bg-light);
+      border-radius: 4px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
     }
     
-    table {
+    .filter-group {
+      flex: 1;
+      min-width: 180px;
+    }
+    
+    .filter-label {
+      display: block;
+      color: var(--cyber-text-dim);
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    
+    .filter-input, .filter-select {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1rem;
+      background-color: var(--cyber-bg-medium);
+      border: 1px solid var(--cyber-border);
+      border-radius: 4px;
+      color: var(--cyber-text-bright);
+      transition: all 0.3s ease;
+    }
+    
+    .filter-input:focus, .filter-select:focus {
+      outline: none;
+      border-color: var(--cyber-neon-teal);
+      box-shadow: 0 0 0 2px var(--cyber-neon-teal-glow);
+    }
+    
+    .filter-select {
+      appearance: none;
+      padding-right: 2rem;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238b949e'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.5rem center;
+      background-size: 1.5rem;
+    }
+    
+    .filter-button {
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(90deg, var(--cyber-neon-teal), var(--cyber-accent));
+      border: none;
+      border-radius: 4px;
+      color: var(--cyber-bg-dark);
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 10px var(--cyber-neon-teal-glow);
+      min-width: 140px;
+    }
+    
+    .filter-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 15px var(--cyber-neon-teal-glow);
+    }
+    
+    .cyber-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 1rem;
+      margin-bottom: 1em;
       font-size: 0.9rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     
-    th, td {
-      border: 1px solid #e5e7eb;
+    .cyber-table th, .cyber-table td {
+      border: 1px solid var(--cyber-border);
       padding: 0.75rem;
       text-align: left;
     }
     
-    th {
-      background: #f9fafb;
+    .cyber-table th {
+      background: var(--cyber-bg-light);
       font-weight: 600;
+      color: var(--cyber-text-bright);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
     
-    tr:nth-child(even) {
-      background-color: #f9fafb;
+    .cyber-table tbody tr {
+      background-color: var(--cyber-bg-medium);
+      transition: all 0.2s ease;
+    }
+    
+    .cyber-table tbody tr:hover {
+      background-color: var(--cyber-bg-light);
     }
     
     .status-success {
-      color: var(--success);
+      color: var(--cyber-success);
       font-weight: 600;
     }
     
     .status-failed {
-      color: var(--danger);
+      color: var(--cyber-error);
       font-weight: 600;
     }
     
@@ -236,42 +522,31 @@ function buildRewardTransactionsHTML(transactions: any[]): string {
       white-space: nowrap;
     }
     
-    .filters {
-      margin-bottom: 1.5rem;
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
+    .timestamp {
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: var(--cyber-text-bright);
     }
     
-    .filter-group {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
+    .table-container {
+      max-height: 600px;
+      overflow-y: auto;
+      border-radius: 4px;
+      border: 1px solid var(--cyber-border);
     }
     
-    .filter-group label {
-      font-weight: 600;
+    .results-count {
+      margin-bottom: 1rem;
+      color: var(--cyber-text-dim);
       font-size: 0.9rem;
     }
-    
-    .filter-group input, .filter-group select {
-      padding: 0.5rem;
-      border: 1px solid #d1d5db;
-      border-radius: 0.25rem;
-    }
-    
-    button {
-      background-color: var(--primary);
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 0.25rem;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    
-    button:hover {
-      background-color: var(--primary-dark);
+
+    .eth-address {
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: var(--cyber-text-dim);
+      word-break: break-all; /* Allow breaking at any character to prevent overflow */
+      display: inline-block;
     }
     
     @media (max-width: 768px) {
@@ -279,100 +554,130 @@ function buildRewardTransactionsHTML(transactions: any[]): string {
         padding: 1rem;
       }
       
-      header {
-        padding: 1rem;
-        margin: -1rem -1rem 1rem -1rem;
-      }
-      
-      h1 {
-        font-size: 1.5rem;
-      }
-      
-      table {
+      .cyber-table {
         display: block;
         overflow-x: auto;
+      }
+      
+      .filters {
+        flex-direction: column;
+      }
+      
+      .filter-group {
+        width: 100%;
       }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>Reward Transactions</h1>
-    </header>
-    
-    <div class="filters">
-      <div class="filter-group">
-        <label for="userId">User ID:</label>
-        <input type="text" id="userId" placeholder="Filter by user">
+    <div class="quests-card">
+      <div class="card-header">
+        <h1 class="glitch-text">Reward Transactions</h1>
       </div>
-      <div class="filter-group">
-        <label for="questId">Quest ID:</label>
-        <input type="text" id="questId" placeholder="Filter by quest">
-      </div>
-      <div class="filter-group">
-        <label for="status">Status:</label>
-        <select id="status">
-          <option value="all">All</option>
-          <option value="success">Success</option>
-          <option value="failed">Failed</option>
-        </select>
-      </div>
-      <button onclick="applyFilters()">Apply Filters</button>
-    </div>
-    
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Time</th>
-          <th>User</th>
-          <th>Reward</th>
-          <th>Quest/Task</th>
-          <th>Status</th>
-          <th>Details</th>
-        </tr>
-      </thead>
-      <tbody>`;
+      
+      <div class="card-body">
+        <div class="filters">
+          <div class="filter-group">
+            <label class="filter-label" for="userId">User ID</label>
+            <input type="text" id="userId" class="filter-input" placeholder="Filter by user...">
+          </div>
+          
+          <!-- Quest filter removed -->
+          
+          <div class="filter-group">
+            <label class="filter-label" for="status">Status</label>
+            <select id="status" class="filter-select">
+              <option value="all">All Statuses</option>
+              <option value="success">Success</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+          
+          <button class="filter-button" onclick="applyFilters()">Apply</button>
+        </div>
+        
+        <div class="results-count">Showing ${transactions.length} transactions</div>
+        
+        <div class="table-container">
+          <table class="cyber-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Time</th>
+                <th>User</th>
+                <th>Reward</th>
+                <!-- Quest column removed -->
+                <th>Status</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>`;
 
   // Add rows for each transaction
   for (const tx of transactions) {
     const statusClass = tx.status === 'success' ? 'status-success' : 'status-failed';
-    const questTaskInfo = tx.taskId 
-      ? `Quest: ${tx.questId}<br>Task: ${tx.taskId}` 
-      : (tx.stepId ? `Quest: ${tx.questId}<br>Step: ${tx.stepId}` : `Quest: ${tx.questId}`);
     
     html += `
-        <tr>
-          <td>${tx.id}</td>
-          <td>${formatTimestamp(tx.timestamp)}</td>
-          <td>${tx.userId}</td>
-          <td>${tx.rewardName} (${tx.rewardType})</td>
-          <td>${questTaskInfo}</td>
-          <td class="${statusClass}">${tx.status}</td>
-          <td class="details-cell" title="${tx.error || 'No errors'}">${tx.error || 'No errors'}</td>
-        </tr>`;
+              <tr>
+                <td>${tx.id}</td>
+                <td class="timestamp">${formatTimestamp(tx.timestamp)}</td>
+                <td><span class="eth-address">${tx.userId}</span></td>
+                <td>${tx.rewardName || 'Unknown'} (${tx.rewardType || 'Unknown'})</td>
+                <!-- Quest column removed -->
+                <td class="${statusClass}">${tx.status}</td>
+                <td class="details-cell" title="${tx.error || 'No errors'}">${tx.error || 'No errors'}</td>
+              </tr>`;
   }
 
   html += `
-      </tbody>
-    </table>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
   
   <script>
     function applyFilters() {
       const userId = document.getElementById('userId').value;
-      const questId = document.getElementById('questId').value;
+      // Quest filter removed
       const status = document.getElementById('status').value;
       
-      let url = window.location.pathname + '?format=html';
+      let url = window.location.pathname;
       
-      if (userId) url += '&userId=' + encodeURIComponent(userId);
-      if (questId) url += '&questId=' + encodeURIComponent(questId);
-      if (status && status !== 'all') url += '&status=' + encodeURIComponent(status);
+      // Start with empty query parameters
+      const params = [];
+      
+      if (userId) params.push('userId=' + encodeURIComponent(userId));
+      // Quest filter removed
+      if (status && status !== 'all') params.push('status=' + encodeURIComponent(status));
+      
+      // Add format=html parameter
+      params.push('format=html');
+      
+      // Construct the URL with query parameters
+      if (params.length > 0) {
+        url += '?' + params.join('&');
+      }
       
       window.location.href = url;
     }
+    
+    // Set initial values from URL parameters
+    document.addEventListener('DOMContentLoaded', function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      if (urlParams.has('userId')) {
+        document.getElementById('userId').value = urlParams.get('userId');
+      }
+      
+      // Quest filter removed
+      
+      if (urlParams.has('status')) {
+        document.getElementById('status').value = urlParams.get('status');
+      }
+    });
   </script>
 </body>
 </html>`;

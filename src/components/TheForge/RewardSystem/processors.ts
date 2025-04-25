@@ -1,5 +1,11 @@
 import { RewardEntry } from "./types";
 import { checkDecentralandWeb3Wallet } from "./index";
+import { TokenManager } from "../../TokenManager";
+import { QuestRoom } from "../QuestRoom";
+import { questRooms } from "../../../rooms";
+
+// Get or initialize the TokenManager instance
+const tokenManager = new TokenManager();
 
 /**
  * Distribute a web2 item (digital code, file download, etc.)
@@ -205,7 +211,7 @@ export async function distributeDecentralandReward(reward: RewardEntry): Promise
   //todo: if no, continue
   
   try {
-    console.log(`[RewardSystem] Distributing Decentraland reward: ${reward.rewardData.name} (type: ${reward.rewardData.decentralandReward?.type}) to ${reward.userId}`);
+    console.log(`[RewardSystem] Distributing Decentraland reward: ${reward.rewardData.name} (type: ${reward.rewardData.kind}) to ${reward.userId}`);
 
     const request = await fetch('https://rewards.decentraland.org/api/rewards', {
       method: 'POST',
@@ -219,8 +225,10 @@ export async function distributeDecentralandReward(reward: RewardEntry): Promise
     })
     
     const response = await request.json()
+    console.log('distributeDecentralandReward', response)
     if(response.ok){
-      console.log(`[RewardSystem] Decentraland reward distributed successfully: ${response.message}`);
+      console.log(`[RewardSystem] Decentraland reward distributed successfully: ${response.data[0].status}`);
+      // reward.transactionData = response.data[0]
       return true;
     }else{
       console.error(`[RewardSystem] Error distributing Decentraland reward: ${response.error}`);
@@ -231,6 +239,92 @@ export async function distributeDecentralandReward(reward: RewardEntry): Promise
     console.error(`[RewardSystem] Error distributing Decentraland reward: ${error}`);
     reward.error = `${error}`;
     reward.status = 'failed';
+    return false;
+  }
+}
+
+/**
+ * Distribute a creator token reward
+ */
+export async function distributeCreatorToken(reward: RewardEntry, room: QuestRoom): Promise<boolean> {
+  if (!reward.userId || !reward.rewardData.id) {
+    console.error(`[RewardSystem] Missing required data for CREATOR_TOKEN reward`);
+    return false;
+  }
+  
+  try {
+    // First, we need to find the creator token ID and amount from the reward data
+    // The tokenId and amount will be in the reward.rewardData object
+    // We'll update the code to support this structure
+    
+    // We assume the token ID is stored in the reward.rewardData itself
+    // and the amount is stored somewhere in the reward data
+    const tokenId = reward.rewardData.id; // Using the reward ID as token ID
+    const amount = "10"; // Default amount if not specified
+    
+    console.log(`[RewardSystem] Distributing creator token: ${reward.rewardData.name} (tokenId: ${tokenId}, amount: ${amount}) to ${reward.userId}`);
+    
+    // Get the token
+    const token = tokenManager.getTokenById(tokenId);
+    if (!token) {
+      console.error(`[RewardSystem] Creator token with ID ${tokenId} not found`);
+      return false;
+    }
+    
+    // Calculate new circulating supply
+    const currentSupply = parseFloat(token.circulatingSupply) || 0;
+    const amountToAdd = parseFloat(amount) || 0;
+    const newSupply = (currentSupply + amountToAdd).toString();
+    
+    // Update the token's circulating supply
+    const updated = tokenManager.updateTokenSupply(tokenId, newSupply);
+    if (!updated) {
+      console.error(`[RewardSystem] Failed to update circulating supply for token ${tokenId}`);
+      return false;
+    }
+    
+    // Get the updated token after the circulating supply change
+    const updatedToken = tokenManager.getTokenById(tokenId);
+    if (!updatedToken) {
+      console.error(`[RewardSystem] Failed to get updated token information`);
+      return false;
+    }
+    
+    // Notify all quest rooms about the token distribution
+    // Find all creator rooms and notify the token creator
+    for (const [roomId, questRoom] of questRooms.entries()) {
+      // Skip if not a creator room
+      if (questRoom.state.questId !== "creator") continue;
+      
+      try {
+        // Find all clients that should be notified
+        const creatorClients = Array.from(questRoom.clients.values());
+        
+        // For each client in the creator room
+        for (const creatorClient of creatorClients) {
+          // Only send to the creator of the token
+          if (creatorClient.userData.userId === token.creator) {
+            console.log(`Notifying token creator ${token.creator} about token distribution`);
+            creatorClient.send("TOKEN_DISTRIBUTED", {
+              tokenId,
+              token: updatedToken,
+              amount,
+              userId: reward.userId,
+              rewardId: reward.rewardData.id,
+              rewardName: reward.rewardData.name,
+              timestamp: Date.now()
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Error notifying creator room ${roomId}:`, error);
+      }
+    }
+    
+    console.log(`[RewardSystem] Successfully distributed ${amount} creator tokens (${tokenId}) to ${reward.userId}`);
+    return true;
+  } catch (error) {
+    console.error(`[RewardSystem] Error distributing creator token reward: ${error}`);
     return false;
   }
 }

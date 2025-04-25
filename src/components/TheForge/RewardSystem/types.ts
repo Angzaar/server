@@ -1,4 +1,5 @@
 import { RewardKind } from "../utils/types";
+import { QuestRoom } from "../QuestRoom";
 
 /**
  * Interface representing an entry in the reward processing queue
@@ -28,13 +29,16 @@ export interface RewardEntry {
   status: 'pending' | 'processing' | 'completed' | 'failed';  // Current processing status
   attempts: number;               // Number of distribution attempts
   error: string | null;           // Error message if failed
+  // transactionData:any;            // Transaction data from the reward processor
 }
 
 /**
  * Type for reward handlers by kind
  */
 export type RewardHandlers = {
-  [key in RewardKind]: (reward: RewardEntry) => Promise<boolean>;
+  [key in RewardKind]: key extends 'CREATOR_TOKEN' 
+    ? (reward: RewardEntry, room: QuestRoom) => Promise<boolean>
+    : (reward: RewardEntry) => Promise<boolean>;
 };
 
 /**

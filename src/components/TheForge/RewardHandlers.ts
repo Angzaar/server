@@ -3,6 +3,7 @@ import { getCache, updateCache } from "../../utils/cache"
 import { REWARDS_CACHE_KEY } from "../../utils/initializer";
 import { v4 } from 'uuid';
 import { Reward } from "./utils/types";
+import { validateMarketplaceData, ensureMarketplaceFields } from "../../utils/marketplaceUtils";
 
 export function getCreatorRewards(creatorId:string){
     let rewards = getCache(REWARDS_CACHE_KEY)
@@ -13,22 +14,61 @@ export async function handleCreateReward(client: Client, message: any) {
   try {
     console.log('handleCreateReward', message)
     
-    const reward: Reward = {
+    // Basic validation
+    if (!message.name) {
+      throw new Error('Reward name is required');
+    }
+    
+    if (!message.kind) {
+      throw new Error('Reward kind is required');
+    }
+    
+    let reward: Reward = {
       ...message,
-      id: v4(),
-      // Ensure creator is set - use client.userData.userAddress if not provided
-      creator: message.creator || message.creatorId || client.userData.userAddress,
-      createdAt: new Date().toISOString(),
+      id: message.id || v4(),
+      // Ensure creator is set - use client.userData.userId if not provided
+      creator: message.creator || message.creatorId || client.userData.userId,
+      createdAt: message.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+    
+    // Apply marketplace defaults and validation
+    reward = ensureMarketplaceFields(reward);
+    
+    // Validate marketplace data if present
+    const validationResult = validateMarketplaceData(reward);
+    if (!validationResult.valid) {
+      throw new Error(validationResult.error);
+    }
 
     console.log('Saving reward with creator:', reward.creator)
     
     // Get existing rewards
     const rewards = getCache(REWARDS_CACHE_KEY) || [];
     
-    // Add new reward
-    rewards.push(reward);
+    // Check if this is an update to an existing reward
+    const existingIndex = rewards.findIndex((r: Reward) => r.id === reward.id);
+    
+    if (existingIndex >= 0) {
+      // Update existing reward
+      const existing = rewards[existingIndex];
+      
+      // Security check: only creator can update
+      if (existing.creator !== client.userData.userId) {
+        throw new Error('Unauthorized: only the creator can update this reward');
+      }
+      
+      // Preserve creation timestamp
+      reward.createdAt = existing.createdAt;
+      
+      // Replace existing with updated
+      rewards[existingIndex] = reward;
+      console.log(`Updated existing reward: ${reward.id}`);
+    } else {
+      // Add new reward
+      rewards.push(reward);
+      console.log(`Created new reward: ${reward.id}`);
+    }
     
     // Update cache
     updateCache(REWARDS_CACHE_KEY, REWARDS_CACHE_KEY, rewards);

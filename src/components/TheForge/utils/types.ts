@@ -106,14 +106,29 @@ export interface EphemeralCodeData {
       steps: StepDefinition[];
     }
 
-
+/**
+ * Represents a single attempt at completing a quest
+ * Used for repeatable quests to track multiple completions
+ */
+export interface QuestAttempt {
+  attemptId: string;           // Unique ID for this attempt
+  attemptNumber: number;       // Sequential number for this attempt (1-indexed)
+  startTime: number;           // When this attempt started (Unix timestamp)
+  completionTime: number;      // When this attempt was completed (Unix timestamp)
+  elapsedTime: number;         // Total time spent on this attempt
+  completed: boolean;          // Whether this attempt was completed
+  started: boolean;            // Whether this attempt was started
+  steps: any[];                // Progress data for steps in this attempt
+  status?: 'in-progress' | 'completed' | 'expired';  // Current status of the attempt
+}
 
 /* ---------- ENUMS & COMMON TYPES ---------- */
-export type RewardKind = 'WEB2_ITEM' | 'ERC20' | 'ERC721' | 'ERC1155' | 'PHYSICAL' | 'DECENTRALAND_ITEM' | 'DECENTRALAND_REWARD';
+export type RewardKind = 'WEB2_ITEM' | 'ERC20' | 'ERC721' | 'ERC1155' | 'PHYSICAL' | 'DECENTRALAND_ITEM' | 'DECENTRALAND_REWARD' | 'CREATOR_TOKEN';
 
 export type Currency =
   | { symbol: string; decimals: number }                 // on‑chain (e.g. ETH, MATIC)
-  | { iso: string };                                     // fiat  (e.g. USD, EUR)
+  | { iso: string }
+  | { tokenId: string };                                 // creator token
 
 export interface Price {
   amount: string;           // keep as string to avoid JS float issues
@@ -129,6 +144,20 @@ export interface Listing {
 }
 
 /* ---------- MAIN REWARD RECORD ---------- */
+
+// Add interface for MarketplaceData
+export interface MarketplaceData {
+  category: string;         // main category (e.g. Clothing, Weapons)
+  subcategory: string;      // sub-category (e.g. T-Shirts, Swords)
+  tags: string[];           // searchable tags
+}
+
+// Add interface for Promotion
+export interface Promotion {
+  isOnSale: boolean;        // whether the item is on sale
+  salePrice: string;        // sale price if on sale 
+  saleEndDate: string;      // when the sale ends
+}
 
 export interface Reward {
   /* identity & metadata */
@@ -210,8 +239,62 @@ export interface Reward {
 
   /* marketplace listing (optional) */
   listing?: Listing;
+  
+  /* marketplace metadata */
+  marketplaceData?: MarketplaceData; // category, subcategory, tags
+
+  /* featured status */
+  featured?: boolean;               // highlighted in marketplace
+
+  /* sale promotion */
+  promotion?: Promotion;            // sale information
 
   /* housekeeping */
   createdAt: string;                // ISO‑8601
+  updatedAt: string;
+}
+
+
+/**
+ * Represents a single attempt at completing a quest
+ * Used for repeatable quests to track multiple completions
+ */
+export interface QuestAttempt {
+  attemptId: string;           // Unique ID for this attempt
+  attemptNumber: number;       // Sequential number for this attempt (1-indexed)
+  startTime: number;           // When this attempt started (Unix timestamp)
+  completionTime: number;      // When this attempt was completed (Unix timestamp)
+  elapsedTime: number;         // Total time spent on this attempt
+  completed: boolean;          // Whether this attempt was completed
+  started: boolean;            // Whether this attempt was started
+  steps: any[];                // Progress data for steps in this attempt
+  status?: 'in-progress' | 'completed' | 'expired';  // Current status of the attempt
+}
+
+/**
+ * Represents a creator token in the system
+ */
+export interface CreatorToken {
+  /* identity & metadata */
+  id: string;                     // unique token identifier
+  creator: string;                // creator's address
+  name: string;                   // display name
+  symbol: string;                 // token symbol (e.g. "SLICE")
+  description?: string;           // token description
+  media?: { image: string };      // token logo/image
+  
+  /* supply info */
+  totalSupply: string;            // total supply (string to avoid precision issues)
+  circulatingSupply: string;      // amount in circulation
+  
+  /* token economics */
+  initialPrice?: string;          // initial price in USD
+  
+  /* permissions */
+  usableAsPayment: boolean;       // whether token can be used as payment
+  usableAsReward: boolean;        // whether token can be used as reward
+
+  /* housekeeping */
+  createdAt: string;              // ISO‑8601
   updatedAt: string;
 }

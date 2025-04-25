@@ -11,6 +11,7 @@ import { setNPCGrid } from "../utils/npc";
 import { start } from "repl";
 import { validateAuthentication } from '../utils/signatures';
 import { validateGoogleToken } from "../utils/auth";
+import { isDecentralandRealm } from "../utils/realm";
 const { v4: uuidv4 } = require('uuid');
 
 const SLOT_DURATION = 2 * 60 * 60; // 2 hours in seconds
@@ -21,7 +22,9 @@ export const validateAndCreateProfile = async (
     req: any
   ): Promise<any> => {
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.address().address;
+    const origin = req.headers['origin'] || req.headers['host'];
     const {userId, name } = options
+    options.ip = ipAddress
 
     // For web-dapp clients, verify the signature
     if (options.realm === "web-dapp") {
@@ -32,6 +35,17 @@ export const validateAndCreateProfile = async (
       }
       console.log('Signature validated successfully for user:', userId);
     }
+
+    // Verify that the request origin is from an allowed domain
+    const isAllowedOrigin = origin && (
+      origin.includes('decentraland.org') || 
+      origin.includes('web-dapp') || 
+      origin.includes('hyperfy') ||
+      origin.includes('worlds-server') ||
+      origin.includes('lastslice.co') ||
+      origin.includes('dcl-iwb.co') ||
+      (process.env.ENV === "Development") // Allow in development environment
+    );
 
     // if(options.authType === "google"){
     //   console.log('google auth type')
@@ -57,8 +71,8 @@ export const validateAndCreateProfile = async (
 
     let profile:any = profiles.find((profile) => profile.ethAddress === userId)// profileExists({userId, ipAddress})
     if(profile){
-      console.log('we found the profile already exists')
-      console.log("checking for duplicate information")
+      // console.log('we found the profile already exists')
+      // console.log("checking for duplicate information")
       // Check for duplicate userId or ipAddress
       // const alreadyUserId = profiles.find((profile) => profile.ethAddress === userId)
       // if(alreadyUserId && alreadyUserId.ipAddress !== ipAddress){
@@ -73,7 +87,7 @@ export const validateAndCreateProfile = async (
     //    throw new Error("Too Many IP");
     //  }
 
-     console.log('profile is good to log in, see if they have dust created, if not create it with 0')
+    //  console.log('profile is good to log in, see if they have dust created, if not create it with 0')
      if(!profile.hasOwnProperty('dust')){
       profile.dust = 0
      }
@@ -87,6 +101,7 @@ export const validateAndCreateProfile = async (
         ipAddress,
         name: name,
         createdDate: new Date(),
+        lastLogin: new Date(),
         deployments: 0,
         dust:0,
         goals:0,
@@ -99,7 +114,7 @@ export const validateAndCreateProfile = async (
         questsProgress:[]
       }
       profiles.push(profile)
-      console.log('created new profile!')
+      console.log('created new profile!', profile)
       // Update cache and sync to file
       // await updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
     }
@@ -108,6 +123,7 @@ export const validateAndCreateProfile = async (
     client.userData.ip = ipAddress
 
     if(!options.realm && !options.reservationDapp){
+      console.log('no realm or reservation dapp', options)
       throw new Error("Invalid realm info")
     }
 
@@ -115,21 +131,45 @@ export const validateAndCreateProfile = async (
       let quests = getCache(QUEST_TEMPLATES_CACHE_KEY)
       let quest = quests.find((quest:any)=> quest.questId === options.questId && quest.creator === options.userId)
       if(!quest){
-        console.log('no quest found for creator local testing', options.userId, options.questId)
+        console.log('no quest found for creator local testing', options)
         throw new Error("Invalid Quest Creator for local testing")
       }
     }
 
-    if(process.env.ENV === "Development" || (options.iwb && options.realm === "worlds-server")){
+    if(options.realm.includes("127.0.0.1") || options.realm.includes("localhost")){
+      console.log('user is local, are they creator? or a scammer?', options)
+      throw new Error("Invalid Parameters - Local Mode")
+    }
+
+    if(options.realm === "web-dapp" && options.questId === "creator"){
+      // console.log("using web dapp realm")
+      client.userData.web3 = true
+      profile.web3 =true
+      // profile.name = client.userData.name
+    }
+
+    else if(process.env.ENV === "Development" || (options.realm === "https://worlds.dcl-iwb.co")){
       client.userData.web3 = true
       profile.web3 =true
       profile.name = client.userData.name
-    }else if(options.realm === "web-dapp" && options.questId === "creator"){
-      console.log("using web dapp realm")
+    }
+
+    else if (!isAllowedOrigin && !options.reservationDapp) {
+      console.log('Request from unauthorized origin:', origin);
+      throw new Error("Unauthorized origin");
+    }
+    
+    else if(options.realm === "hyperfy"){
+      // console.log("hyperfy realm login incoming")
       client.userData.web3 = true
       profile.web3 =true
       profile.name = client.userData.name
-    }else{
+    }
+    else{
+      if (!isDecentralandRealm(options.realm)) {
+        console.log('Invalid realm domain:', options);
+        throw new Error("Invalid realm domain - must be from decentraland.org");
+      }
       try{
         // let data:any = await fetch(`${options.realm}/lambdas/profiles/${options.userId}`)
         let data:any = await fetch(`https://realm-provider.decentraland.org/lambdas/profiles/${options.userId}`)
@@ -154,15 +194,14 @@ export const validateAndCreateProfile = async (
         //   throw new Error("Error fetching realm peer status")
         // }
       }
-      catch(e:any){
-        console.log('error fetching remote profile, trying different realm provider', e)
-
+      catch(error:any){
+        console.log('error fetching remote profile first time, trying different realm provider', error.message)
         try{
           let data:any = await fetch(`https://realm-provider.decentraland.org/lambdas/profiles/${options.userId}`)
           let profileData = await data.json()
           // console.log('profile data is', profileData)
           if(profileData.error){
-            console.log('remote profile error', profileData)
+            console.log('remote profile error second time', profileData)
             throw new Error("Invalid remote profile")
           }
           client.userData.name = profileData.avatars[0].name
@@ -181,7 +220,7 @@ export const validateAndCreateProfile = async (
           }
         }
         catch(e:any){
-          console.log('error fetching remote profile', e)
+          console.log('error fetching remote profile', e.message)
           return false
         }
       }

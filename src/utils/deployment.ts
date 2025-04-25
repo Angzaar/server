@@ -1,10 +1,19 @@
 const fs = require('fs-extra');
 const path = require('path');
-import { exec } from "child_process";
+import { exec, spawn } from "child_process";
 import * as unzipper from "unzipper";
 import { getCache, updateCache } from "./cache";
 import { DEPLOY_LOCATION, DEPLOYMENT_QUEUE_CACHE_KEY, DEPLOYMENT_QUEUE_FILE, LOCATIONS_CACHE_KEY, LOCATIONS_FILE, TEMP_LOCATION } from "./initializer";
 import { prepareLocationReset } from "./admin";
+import ignore from "ignore";
+import { ChainId, getChainName, EntityType } from '@dcl/schemas'
+
+import { DeploymentBuilder } from "dcl-catalyst-client";
+export interface IFile {
+    path: string
+    content: Buffer
+    size: number
+}
 
 export type Deployment = {
     file:string,
@@ -29,6 +38,8 @@ export let deploymentStatus:any = {
     started:0,
     finished:0
 }
+
+export const npm = /^win/.test(process.platform) ? 'npm.cmd' : 'npm'
 
 export function checkDCLDeploymentQueue(){
     console.log(deploymentQueue)
@@ -69,7 +80,11 @@ export async function processDeployment(deployment:Deployment){
                 throw new Error("Location not found for deployment")
             }
 
-             //TODO - check reservation times still valid
+            if(userReservaton.endDate < Math.floor(Date.now()/1000)){
+                console.log('reservation expired, cancel deployment')
+                await fs.remove(path.join(TEMP_LOCATION, deployment.file));
+                throw new Error("Reservation expired")
+            }
         }
 
         deploymentStatus.status = "Unzipping Scene Content"
@@ -93,7 +108,7 @@ export async function processDeployment(deployment:Deployment){
         console.log(`Unzipped to deploy directory`);
 
         //Delete the zip file
-        // await fs.remove(path.join(TEMP_LOCATION, deployment.file));
+        await fs.remove(path.join(TEMP_LOCATION, deployment.file));
         console.log(`Deleted temp zip ${TEMP_LOCATION}`);
 
         console.log('verifying scene...')
@@ -136,6 +151,11 @@ export async function processDeployment(deployment:Deployment){
 
         await fs.promises.writeFile(DEPLOY_LOCATION + "/scene.json", JSON.stringify(metadata,null, 2));
 
+        //Testing purposes only
+        // console.log('testing and will abort on purpose')
+        // await resetDeployment(deployment.id)
+        // return
+
         
         // Step 2: Run `npm install` in the directory
         deploymentStatus.status = "Installing Dependencies"
@@ -158,9 +178,39 @@ export async function processDeployment(deployment:Deployment){
             await updateCache(DEPLOYMENT_QUEUE_FILE, DEPLOYMENT_QUEUE_CACHE_KEY, deployments);
         }
         console.log(`Building scene in ${DEPLOY_LOCATION}`);
-        await runCommand(`npm run build`, DEPLOY_LOCATION);
+        // await runCommand(`npm run build`, DEPLOY_LOCATION);
 
-        let deployCommand = "DCL_PRIVATE_KEY=" + process.env.DEPLOY_KEY + " " + process.env.DEPLOY_CMD
+        await buildTypescript({
+            workingDir: DEPLOY_LOCATION, 
+            watch:false, 
+            production: true
+          })
+
+           //   // Obtain list of files to deploy//
+           const originalFilesToIgnore = await fs.readFile(
+            DEPLOY_LOCATION + '/.dclignore',
+              'utf8'
+            )
+
+          const files: IFile[] = await getFiles({
+          ignoreFiles: originalFilesToIgnore,
+          skipFileSizeCheck: false,
+          }, DEPLOY_LOCATION)
+          const contentFiles = new Map(files.map((file) => [file.path, file.content]))
+
+          // Create scene.json
+          const sceneJson = await getSceneFile(DEPLOY_LOCATION + "/")
+
+          const { entityId, files: entityFiles } = await DeploymentBuilder.buildEntity({
+              type: EntityType.SCENE,
+              pointers: findPointers(sceneJson),
+              files: contentFiles,
+              metadata: sceneJson
+          })
+
+        // Force lowercase for the deployment key's derived address
+        // This is needed because the linker service expects lowercase addresses
+        let deployCommand = "DCL_PRIVATE_KEY=" + process.env.DEPLOY_KEY + " DCL_FORCE_LOWERCASE_ADDRESS=true " + process.env.DEPLOY_CMD
         console.log('deploying scene ', deployment.id, deployCommand)
         deploymentStatus.status = "Deploying Scene"
         deployments = getCache(DEPLOYMENT_QUEUE_CACHE_KEY);
@@ -194,7 +244,7 @@ export async function processDeployment(deployment:Deployment){
 
 export async function resetDeployment(deploymentId:string, reason?:string){
     try{
-        // await fs.emptyDir(DEPLOY_LOCATION)
+        await fs.emptyDir(DEPLOY_LOCATION)
         console.log('finished emptying deploy directory')
         deploymentStatus.enabled = true
         deploymentStatus.status = "free"
@@ -250,6 +300,11 @@ export function checkDeploymentReservations(){
         }
     
         locations.forEach((location:any)=>{
+
+            location.reservations = location.reservations.filter(
+                (reservation:any) => reservation.endDate >= now
+              );
+
             let currentReservations = location.reservations.filter(
                 (reservation:any) => now >= reservation.startDate && now <= reservation.endDate
             );
@@ -286,7 +341,7 @@ export const unzip = async (zipPath:string, destPath:string) => {
     });
   };
 
-const runCommand = async (command:any, cwd:any) => {
+  const runCommand = async (command:any, cwd:any) => {
     return new Promise((resolve, reject) => {
       exec(command, { cwd }, (error, stdout, stderr) => {
         if (error) {
@@ -358,3 +413,153 @@ function flattenGrid(grid:any) {
     // Flatten the grid
     return grid.reduce((flatArray, row) => flatArray.concat(row), []);
 }
+
+
+
+export function buildTypescript({
+    workingDir,
+    watch,
+    production,
+    silence = false
+  }: {
+    workingDir: string
+    watch: boolean
+    production: boolean
+    silence?: boolean
+  }): Promise<void> {
+    const command = watch ? 'watch' : 'build -- -p'
+    const NODE_ENV = production ? 'production' : ''
+  
+    return new Promise((resolve, reject) => {
+      const child = spawn(npm, ['run', command], {
+        shell: true,
+        cwd: workingDir,
+        env: { ...process.env, NODE_ENV }
+      })
+  
+      if (!silence) {
+        child.stdout.pipe(process.stdout)
+        child.stderr.pipe(process.stderr)
+      }
+  
+      child.stdout.on('data', (data) => {
+        if (
+          data.toString().indexOf('The compiler is watching file changes...') !==
+          -1
+        ) {
+          if (!silence) console.log('Project built.')
+          return resolve()
+        }
+      })
+  
+      child.on('close', (code) => {
+        if (code !== 0) {
+          const msg = 'Error while building the project'
+          if (!silence)  console.log(msg)
+          reject(new Error(msg))
+        } else {
+          if (!silence)  console.log('Project built.')
+          return resolve()
+        }
+      })
+    })
+  }
+
+  export async function getSceneFile(
+    workingDir: string,
+    cache: boolean = true
+  ): Promise<any> {
+    // if (cache && sceneFile) {
+    //   return sceneFile
+    // }
+  
+    return await fs.readJSON(path.resolve(workingDir, 'scene.json'))
+  
+  }
+
+  /**
+   * Returns a promise of an array of objects containing the path and the content for all the files in the project.
+   * All the paths added to the `.dclignore` file will be excluded from the results.
+   * Windows directory separators are replaced for POSIX separators.
+   * @param ignoreFile The contents of the .dclignore file
+   */
+export async function getFiles({
+    ignoreFiles = '',
+    cache = false,
+    skipFileSizeCheck = false,
+  }: {
+    ignoreFiles?: string
+    cache?: boolean
+    skipFileSizeCheck?: boolean
+  } = {}, bucketDirectory:string): Promise<IFile[]> {
+
+    // console.log('ignored files are ', ignoreFiles)
+
+    const files = await getAllFilePaths(bucketDirectory, bucketDirectory)
+    const filteredFiles = (ignore as any)()
+      .add(ignoreFiles.split(/\n/g).map(($) => $.trim()))
+      .filter(files)
+    const data = []
+
+    for (let i = 0; i < filteredFiles.length; i++) {
+      const file = filteredFiles[i]
+      const filePath = path.resolve(bucketDirectory, file)
+      const stat = await fs.stat(filePath)
+
+    //   if (stat.size > Project.MAX_FILE_SIZE_BYTES && !skipFileSizeCheck) {
+    //     fail(
+    //       ErrorType.UPLOAD_ERROR,
+    //       `Maximum file size exceeded: '${file}' is larger than ${
+    //         Project.MAX_FILE_SIZE_BYTES / 1e6
+    //       }MB`
+    //     )
+    //   }
+
+      const content = await fs.readFile(filePath)
+      // console.log('file is', filePath)
+
+      data.push({
+        path: file.replace(/\\/g, '/'),
+        content: Buffer.from(content),
+        size: stat.size
+      })
+    }
+    // this.files = data
+    return data
+  }
+
+   /**
+   * Returns a promise of an array containing all the file paths for the given directory.
+   * @param dir The given directory where to list the file paths.
+   */
+ async function getAllFilePaths(dir:string, rootFolder:string): Promise<string[]> {
+    try {
+      const files = await fs.readdir(dir)
+      let tmpFiles: string[] = []
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const filePath = path.resolve(dir, file)
+        const relativePath = path.relative(rootFolder, filePath)
+        const stat = await fs.stat(filePath)
+
+        if (stat.isDirectory()) {
+          const folderFiles = await getAllFilePaths(
+            filePath,
+            rootFolder
+          )
+          tmpFiles = tmpFiles.concat(folderFiles)
+        } else {
+          tmpFiles.push(relativePath)
+        }
+      }
+
+      return tmpFiles
+    } catch (e) {
+      return []
+    }
+  }
+
+  export function findPointers(sceneJson: any): string[] {
+    return sceneJson.scene.parcels
+  }

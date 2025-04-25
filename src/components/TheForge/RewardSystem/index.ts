@@ -1,7 +1,8 @@
 import { QuestRoom } from "../QuestRoom";
 import { getCache, updateCache } from "../../../utils/cache";
-import { REWARDS_CACHE_KEY, REWARDS_TRANSACTIONS_CACHE_KEY, REWARDS_TRANSACTIONS_FILE } from "../../../utils/initializer";
-import { RewardEntry, RewardTransaction } from "./types";
+import { PROFILES_CACHE_KEY, REWARDS_CACHE_KEY, REWARDS_TRANSACTIONS_CACHE_KEY, REWARDS_TRANSACTIONS_FILE } from "../../../utils/initializer";
+import { RewardEntry, RewardHandlers, RewardTransaction } from "./types";
+import { RewardKind } from "../utils/types";
 import {
   distributeWeb2Reward,
   distributeERC20Reward,
@@ -9,8 +10,10 @@ import {
   distributeERC1155Reward,
   distributePhysicalReward,
   distributeDecentralandItemReward,
-  distributeDecentralandReward
+  distributeDecentralandReward,
+  distributeCreatorToken
 } from "./processors";
+import { questRooms } from "../../../rooms";
 
 // In-memory queue for rewards (in production, consider using Redis or similar)
 let rewardQueue: RewardEntry[] = [];
@@ -19,6 +22,19 @@ const MAX_RETRY_ATTEMPTS = 3;
 
 // Optional: store failed rewards for analysis
 let failedRewards: RewardEntry[] = [];
+
+// Map the reward handlers to their respective functions
+export const rewardHandlers: Partial<RewardHandlers> = {
+  'WEB2_ITEM': distributeWeb2Reward,
+  'ERC20': distributeERC20Reward,
+  'ERC721': distributeERC721Reward,
+  'ERC1155': distributeERC1155Reward,
+  'PHYSICAL': distributePhysicalReward,
+  'DECENTRALAND_ITEM': distributeDecentralandItemReward,
+  'DECENTRALAND_REWARD': distributeDecentralandReward,
+  'CREATOR_TOKEN': distributeCreatorToken
+  // Add other reward handlers as needed
+};
 
 /**
  * Create a reward data object from a reward ID
@@ -229,6 +245,39 @@ async function distributeReward(reward: RewardEntry): Promise<boolean> {
         success = await distributeDecentralandReward(reward);
         break;
         
+      case 'CREATOR_TOKEN':
+        // Find an appropriate QuestRoom for the reward
+        let questRoom: QuestRoom | null = null;
+        
+        if (reward.questId) {
+          // Try to find a room for this quest
+          for (const [roomId, room] of questRooms.entries()) {
+            if (room.state.questId === reward.questId) {
+              questRoom = room;
+              break;
+            }
+          }
+        }
+        
+        // If no specific room found, use a creator room as fallback
+        if (!questRoom) {
+          for (const [roomId, room] of questRooms.entries()) {
+            if (room.state.questId === "creator") {
+              questRoom = room;
+              break;
+            }
+          }
+        }
+        
+        if (!questRoom) {
+          console.error(`[RewardSystem] No suitable QuestRoom found for creator token distribution`);
+          reward.error = 'No suitable QuestRoom found';
+          return false;
+        }
+        
+        success = await distributeCreatorToken(reward, questRoom);
+        break;
+        
       default:
         console.error(`[RewardSystem] Unknown reward kind: ${kind}`);
         reward.error = `Unknown reward kind: ${kind}`;
@@ -416,26 +465,44 @@ export async function checkDecentralandWeb3Wallet(userEthAddress: string): Promi
     console.error('[RewardSystem] No user Ethereum address provided to check Web3 wallet');
     return false;
   }
-  
-  try {
-    const response = await fetch(`https://realm-provider.decentraland.org/lambdas/profiles/${userEthAddress}`);
-    const data = await response.json();
-    
-    if (data && data.avatars && data.avatars.length > 0) {
-      const avatar = data.avatars[0];
-      if (!avatar.hasConnectedWeb3) {
-        console.error(`[RewardSystem] User ${userEthAddress} has not connected their web3 wallet`);
-        return false;
-      }
-      return true;
-    } else {
-      console.error(`[RewardSystem] User ${userEthAddress} does not have an avatar`);
+
+  try{
+    const profiles = getCache(PROFILES_CACHE_KEY);
+    const profile = profiles.find((p: any) => p.ethAddress === userEthAddress);
+    if(!profile){
+      console.error(`[RewardSystem] User ${userEthAddress} not found in profiles`);
       return false;
     }
+
+    if(profile.web3){
+      return true;
+    }
+
+    return false;
   } catch (error) {
     console.error(`[RewardSystem] Error checking if user ${userEthAddress} is a web3 wallet: ${error}`);
     return false;
   }
+
+  // try {
+  //   const response = await fetch(`https://realm-provider.decentraland.org/lambdas/profiles/${userEthAddress}`);
+  //   const data = await response.json();
+    
+  //   if (data && data.avatars && data.avatars.length > 0) {
+  //     const avatar = data.avatars[0];
+  //     if (!avatar.hasConnectedWeb3) {
+  //       console.error(`[RewardSystem] User ${userEthAddress} has not connected their web3 wallet`);
+  //       return false;
+  //     }
+  //     return true;
+  //   } else {
+  //     console.error(`[RewardSystem] User ${userEthAddress} does not have an avatar`);
+  //     return false;
+  //   }
+  // } catch (error) {
+  //   console.error(`[RewardSystem] Error checking if user ${userEthAddress} is a web3 wallet: ${error}`);
+  //   return false;
+  // }
 }
 
 /**

@@ -3,7 +3,7 @@ import { Schema, type, ArraySchema, MapSchema } from "@colyseus/schema";
 import { getCache, } from "../utils/cache";
 import { ADMINS_FILE_CACHE_KEY } from "../utils/initializer";
 import { addPlayfabEvent } from "../utils/Playfab";
-import { handleAddCustomItem, handleAddModel, handleCopyNPC, handleCustomItemCopy, handleCustomItemUpdate, handleDeleteCustomItem, handleGetCustomItems, handleGetNPCs, handleNPCTabSelection, handleNPCUpdate } from "./AdminRoomHandlers";
+import { handleAddCustomItem, handleAddModel, handleCopyNPC, handleCustomItemCopy, handleCustomItemUpdate, handleDeleteCustomItem, handleGetCustomItems, handleGetNPCs, handleGetProfiles, handleNPCTabSelection, handleNPCUpdate, handleProfileUpdate } from "./AdminRoomHandlers";
 import { Player } from "./MainRoom";
 import { artGalleryRooms } from "./";
 import { ArtRoom } from "./ArtRoom";
@@ -47,6 +47,8 @@ export class AdminRoom extends Room<MainState> {
     this.onMessage("npc-tab-selection", (client, message) => handleNPCTabSelection(client, message));
     this.onMessage("npc-update", (client, message) => handleNPCUpdate(client, message));
     this.onMessage("npc-copy", (client, message) => handleCopyNPC(client, message));
+    this.onMessage("get-profiles", (client, message) => handleGetProfiles(client));
+    this.onMessage("profile-update", (client, message) => handleProfileUpdate(client, message));
   }
 
   onJoin(client: Client, options:any) {

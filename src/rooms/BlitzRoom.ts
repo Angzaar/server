@@ -138,11 +138,11 @@ export class BlitzRoom extends Room<BlitzState> {
       try{
         if (body) {
           this.state.world.removeBody(body);
-          console.log('removing body')
+          // console.log('removing body')
       }
       }
       catch(e:any){
-        console.log('error removing body at on dispose', e)
+        console.log('error removing body at on dispose', e.message)
       }
     });
     this.state.world.bodies.length = 0

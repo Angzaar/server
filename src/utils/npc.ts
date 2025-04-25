@@ -412,7 +412,7 @@ export async function createNPCs(room:ArtRoom){
 
     let npcData = getCache(NPCS_FILE_CACHE_KEY)
     let enabledNPCs = [...npcData.npcs.filter((npc:any)=> npc.en)]
-    console.log('enabled npcs are ', enabledNPCs)
+    // console.log('enabled npcs are ', enabledNPCs)
     addNPCs(room, enabledNPCs)
 
 }

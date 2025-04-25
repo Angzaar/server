@@ -130,7 +130,7 @@ export class BowlingLane extends Schema {
     let body =  new CANNON.Body({ mass: 0, material:laneMat })
     this.gutterBodies.set('leftDivider', body)
     body.addShape(dividerShape)
-    console.log('divider left is', body.id)
+    // console.log('divider left is', body.id)
 
 
     body.position.set(this.px, this.py, this.pz + 0.25)
@@ -139,7 +139,7 @@ export class BowlingLane extends Schema {
     let right =  new CANNON.Body({ mass: 0, material:laneMat })
     this.gutterBodies.set('rihtDivider', right)
     right.addShape(dividerShape)
-    console.log('divider right is', right.id)
+    // console.log('divider right is', right.id)
 
     right.position.set(this.px + (2*GUTTER_WIDTH) + LANE_WIDTH, this.py, this.pz + 0.25)
     this.room.state.world.addBody(right)
@@ -148,7 +148,7 @@ export class BowlingLane extends Schema {
   createBack(){
     let body =  new CANNON.Body({ mass: 0, material:laneMat })
     body.addShape(backWallShape)
-    console.log('back id is', body.id)
+    // console.log('back id is', body.id)
 
     body.position.set(this.px + GUTTER_WIDTH + halfLaneWidth, this.py, this.pz + (LANE_LENGTH / 2) + 0.75)
 
@@ -159,7 +159,7 @@ export class BowlingLane extends Schema {
     let backGutter =  new CANNON.Body({ mass: 0, material:laneMat })
     this.gutterBodies.set("" + backGutter.id, backGutter)
     backGutter.addShape(backGutterShape)
-    console.log('back gutter is', backGutter.id)
+    // console.log('back gutter is', backGutter.id)
 
     backGutter.position.set(this.px + GUTTER_WIDTH + halfLaneWidth, this.py - 0.2, this. pz + (LANE_LENGTH / 2) + 0.25)
 
@@ -171,7 +171,7 @@ export class BowlingLane extends Schema {
     let body =  new CANNON.Body({ mass: 0, material:laneMat })
     this.gutterBodies.set("" + body.id, body)
     body.addShape(gutterShape)
-    console.log('gutter id is', body.id)
+    // console.log('gutter id is', body.id)
 
     if(side === "left"){
         body.position.set(this.px + halfGutterWidth, this.py - 0.2, this.pz)
@@ -217,7 +217,7 @@ export class BowlingLane extends Schema {
           this.originalPinPositions.set("" + pinBody.id, {pinX, pinY, rowZ})
         }
     }
-    console.log('creating pins')
+    // console.log('creating pins')
   }
 
   createPinBody(x: number, y: number, z: number) {
