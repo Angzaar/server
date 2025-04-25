@@ -83,7 +83,8 @@ export function handleEditQuest(client: Client, payload: any) {
       completionMode,
       maxCompletions,
       timeWindow,
-      autoReset
+      autoReset,
+      rewardIds
     } = payload;
 
     // 1) find in TEMPLATES_FILE_CACHE_KEY
@@ -122,6 +123,11 @@ export function handleEditQuest(client: Client, payload: any) {
       quest.allowReplay = allowReplay;
     }
     
+    // Add rewardIds handling
+    if (Array.isArray(rewardIds)) {
+      quest.rewardIds = rewardIds;
+    }
+    
     // Add completionMode handling
     if (typeof completionMode === 'string') {
       quest.completionMode = completionMode as CompletionMode;
@@ -158,6 +164,9 @@ export function handleEditQuest(client: Client, payload: any) {
     }else{
       quest.endTime = endTime
     }
+
+    // Save changes to both cache and file
+    syncQuestToCache(questId, quest);
 
     // 3) confirm
     client.send("QUEST_EDITED", quest);

@@ -62,7 +62,8 @@ export function createRewardData(rewardId: string) {
     erc1155: reward.erc1155,
     physical: reward.physical,
     decentralandItem: reward.decentralandItem,
-    decentralandReward: reward.decentralandReward
+    decentralandReward: reward.decentralandReward,
+    creatorToken: reward.creatorToken
   };
 }
 

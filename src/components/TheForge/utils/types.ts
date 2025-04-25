@@ -225,6 +225,11 @@ export interface Reward {
     expiresAt?: string;             // ISO date for time-limited rewards
     metadata?: Record<string, any>; // Additional reward-specific metadata
   };
+  
+  creatorToken?: {
+    tokenId: string;                // Reference to the creator token
+    amount: string;                 // How many tokens to reward
+  }; 
 
   /* usage & permissions */
   allowExternalCreators: boolean;   // can others attach this reward to their quests?

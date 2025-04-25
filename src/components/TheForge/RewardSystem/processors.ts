@@ -3,6 +3,8 @@ import { checkDecentralandWeb3Wallet } from "./index";
 import { TokenManager } from "../../TokenManager";
 import { QuestRoom } from "../QuestRoom";
 import { questRooms } from "../../../rooms";
+import { getCache, updateCache } from "../../../utils/cache";
+import { PROFILES_CACHE_KEY, PROFILES_FILE } from "../../../utils/initializer";
 
 // Get or initialize the TokenManager instance
 const tokenManager = new TokenManager();
@@ -247,6 +249,7 @@ export async function distributeDecentralandReward(reward: RewardEntry): Promise
  * Distribute a creator token reward
  */
 export async function distributeCreatorToken(reward: RewardEntry, room: QuestRoom): Promise<boolean> {
+  console.log('distributeCreatorToken', reward)
   if (!reward.userId || !reward.rewardData.id) {
     console.error(`[RewardSystem] Missing required data for CREATOR_TOKEN reward`);
     return false;
@@ -254,13 +257,20 @@ export async function distributeCreatorToken(reward: RewardEntry, room: QuestRoo
   
   try {
     // First, we need to find the creator token ID and amount from the reward data
-    // The tokenId and amount will be in the reward.rewardData object
-    // We'll update the code to support this structure
+    const tokenId = reward.rewardData.creatorToken?.tokenId; // Using the reward ID as token ID
     
-    // We assume the token ID is stored in the reward.rewardData itself
-    // and the amount is stored somewhere in the reward data
-    const tokenId = reward.rewardData.id; // Using the reward ID as token ID
-    const amount = "10"; // Default amount if not specified
+    // Try to find amount in different possible locations, default to 10 if not found
+    let amount = "10"; // Default amount
+    
+    // Use type assertion to access potential fields
+    const rewardDataAny = reward.rewardData as any;
+    if (rewardDataAny.quantity) {
+      amount = rewardDataAny.quantity.toString();
+    } else if (reward.rewardData.erc20?.amount) {
+      amount = reward.rewardData.erc20.amount;
+    } else if (reward.rewardData.erc1155?.amount) {
+      amount = reward.rewardData.erc1155.amount;
+    }
     
     console.log(`[RewardSystem] Distributing creator token: ${reward.rewardData.name} (tokenId: ${tokenId}, amount: ${amount}) to ${reward.userId}`);
     
@@ -271,9 +281,60 @@ export async function distributeCreatorToken(reward: RewardEntry, room: QuestRoo
       return false;
     }
     
+    // Get the user's profile and update their token balance
+    const profiles = getCache(PROFILES_CACHE_KEY);
+    const userProfile = profiles.find((profile: any) => profile.ethAddress === reward.userId);
+    
+    if (!userProfile) {
+      console.error(`[RewardSystem] User profile for ${reward.userId} not found`);
+      return false;
+    }
+    
+    // Initialize tokenBalances if it doesn't exist
+    if (!userProfile.tokenBalances) {
+      userProfile.tokenBalances = {};
+    }
+    
+    // Update the token balance
+    const amountNumber = parseFloat(amount);
+    if (isNaN(amountNumber)) {
+      console.error(`[RewardSystem] Invalid amount: ${amount}`);
+      return false;
+    }
+    
+    // Add to existing balance or create new entry
+    userProfile.tokenBalances[tokenId] = userProfile.tokenBalances[tokenId] 
+      ? (parseFloat(userProfile.tokenBalances[tokenId]) + amountNumber).toString() 
+      : amount;
+    
+    // Also store token metadata for easy reference
+    if (!userProfile.tokens) {
+      userProfile.tokens = [];
+    }
+    
+    // Check if token metadata already exists
+    const existingTokenIndex = userProfile.tokens.findIndex((t: any) => t.id === tokenId);
+    const tokenMetadata = {
+      id: tokenId,
+      balance: userProfile.tokenBalances[tokenId],
+      lastUpdated: new Date().toISOString()
+    };
+    
+    if (existingTokenIndex >= 0) {
+      // Update existing token metadata
+      userProfile.tokens[existingTokenIndex] = tokenMetadata;
+    } else {
+      // Add new token metadata
+      userProfile.tokens.push(tokenMetadata);
+    }
+    
+    // Save the updated profile
+    updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
+    console.log(`[RewardSystem] Updated token balance for user ${reward.userId}: ${tokenId} = ${userProfile.tokenBalances[tokenId]}`);
+    
     // Calculate new circulating supply
     const currentSupply = parseFloat(token.circulatingSupply) || 0;
-    const amountToAdd = parseFloat(amount) || 0;
+    const amountToAdd = amountNumber;
     const newSupply = (currentSupply + amountToAdd).toString();
     
     // Update the token's circulating supply
@@ -324,7 +385,7 @@ export async function distributeCreatorToken(reward: RewardEntry, room: QuestRoo
     console.log(`[RewardSystem] Successfully distributed ${amount} creator tokens (${tokenId}) to ${reward.userId}`);
     return true;
   } catch (error) {
-    console.error(`[RewardSystem] Error distributing creator token reward: ${error}`);
+    console.error(`[RewardSystem] Error distributing creator token reward:`, error);
     return false;
   }
 }

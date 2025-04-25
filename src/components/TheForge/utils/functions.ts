@@ -1,6 +1,6 @@
 import { getCache } from "../../../utils/cache";
 import { CompletionMode, INFINITE, LegacyQuestDefinition, QuestAttempt, QuestDefinition } from "./types";
-import { updateCache } from "../../../utils/cache";
+import { updateCache, cacheSyncToFile } from "../../../utils/cache";
 import { QUEST_TEMPLATES_CACHE_KEY, QUEST_TEMPLATES_FILE, REWARDS_CACHE_KEY } from "../../../utils/initializer";
 import { StepDefinition, TaskDefinition } from "./types";
 import { QuestRoom } from "../QuestRoom";
@@ -19,7 +19,10 @@ export function syncQuestToCache(questId: string, questDefinition: QuestDefiniti
   const idx = quests.findIndex((q: QuestDefinition) => q.questId === questId);
   if (idx >= 0) {
     quests[idx] = questDefinition;
+    // Update both the in-memory cache and write to the file
     updateCache(QUEST_TEMPLATES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY, quests);
+    // Force immediate sync to file
+    cacheSyncToFile(QUEST_TEMPLATES_FILE, QUEST_TEMPLATES_CACHE_KEY, quests);
   }
 }
 

@@ -90,6 +90,40 @@ export async function handleQuestAction(room:QuestRoom, client: Client, payload:
         return;
       }
       
+      // Check if latest attempt is completed and quest is repeatable with no time window
+      if (isCompleted && room.questDefinition.completionMode === 'REPEATABLE' && !room.questDefinition.timeWindow) {
+        console.log(`Repeatable quest with no time window: ${questId} - creating new attempt for user ${client.userData.userId}`);
+        
+        // Check if max completions is reached (if not infinite)
+        if (room.questDefinition.maxCompletions !== INFINITE && 
+            (userQuestInfo.completionCount || 0) >= room.questDefinition.maxCompletions) {
+          console.log(`Quest ${questId} has reached max completions (${room.questDefinition.maxCompletions})`);
+          client.send("QUEST_ERROR", { message: "You have reached the maximum completions for this quest." });
+          return;
+        }
+        
+        // Create a new attempt for this quest
+        const newAttempt = createNewQuestAttempt(room.questDefinition, profile, userQuestInfo);
+        
+        // Notify the user they're starting a new attempt
+        client.send("QUEST_NEW_ATTEMPT", { 
+          questId, 
+          attemptNumber: newAttempt.attemptNumber,
+          message: "Starting a new quest attempt."
+        });
+        
+        // Notify creator rooms about new attempt
+        notifyCreatorRooms(room, "QUEST_NEW_ATTEMPT_BY_USER", {
+          questId,
+          userId: client.userData.userId,
+          userName: profile.name || client.userData.userId,
+          attemptNumber: newAttempt.attemptNumber,
+          attemptId: newAttempt.attemptId,
+          startTime: newAttempt.startTime,
+          timestamp: Date.now()
+        });
+      }
+      
       // Check if latest attempt is completed and quest has time window
       if (isCompleted && room.questDefinition.timeWindow) {
         console.log('quest is completed and has time window')
