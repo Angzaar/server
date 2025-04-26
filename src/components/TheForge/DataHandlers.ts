@@ -1,10 +1,11 @@
 import { Client } from "colyseus";
 import { ephemeralCodes, QuestRoom } from "./QuestRoom";
 import { QuestDefinition, StepDefinition, TaskDefinition, QuestAttempt } from "./utils/types";
-import { QUEST_TEMPLATES_CACHE_KEY, PROFILES_CACHE_KEY } from "../../utils/initializer";
+import { QUEST_TEMPLATES_CACHE_KEY, PROFILES_CACHE_KEY, REWARDS_CACHE_KEY, VERSES_CACHE_KEY } from "../../utils/initializer";
 import { getCache } from "../../utils/cache";
 import { v4 } from "uuid";
 import { sanitizeUserQuestData } from "./utils/functions";
+import { TokenManager } from "../TokenManager";
 
 export function handleQuestOutline(room:QuestRoom, client:Client, payload:any){
     console.log('handling quest outline', payload)
@@ -465,4 +466,27 @@ export function forceResetQuestData(room:QuestRoom, questId: string, forAll?:boo
         profile.questsProgress.splice(userQuestIndex, 1)
     }
     console.log(`[QuestRoom] The quest data "${questId}" was forcibly reset by creator="${room.questDefinition.creator}" for all participants.`);
+}
+
+/**
+ * Handle GET_CREATOR_DATA message - sent when returning to dashboard from marketplace
+ * Returns all creator data without filtering
+ */
+export function handleGetCreatorData(client: Client, message: any) {
+  console.log(`Handling GET_CREATOR_DATA message from ${client.userData.userId}`);
+  
+  // Get all necessary data
+  const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
+  const verses = getCache(VERSES_CACHE_KEY);
+  const rewards = getCache(REWARDS_CACHE_KEY);
+  const tokenManager = new TokenManager();
+  const tokens = tokenManager.getAllTokens();
+  
+  // Send all data back to client - don't filter by creator
+  client.send("QUEST_CREATOR", {
+    quests: quests,
+    verses: verses,
+    rewards: rewards,
+    tokens: tokens
+  });
 }

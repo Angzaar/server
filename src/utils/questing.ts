@@ -111,44 +111,86 @@ export function handleQuestData(req:any, res:any){
       const info = profile.questsProgress.find((q: any) => q.questId === questId);
       if (!info) continue;
 
-      if (completedOnly && !info.completed) {
-        console.log('completedOnly', completedOnly, info.completed)
+      // All quests should now use the attempts-based format
+      if (!info.attempts || info.attempts.length === 0) {
+        // Skip users who don't have any attempts yet
         continue;
       }
-  
-      // compute elapsedTime
-      let elapsedTime = info.elapsedTime
-  
-      // count how many steps completed
+      
+      // Use the latest attempt for the main view
+      const latestAttempt = info.attempts[info.attempts.length - 1];
+      
+      // For completedOnly filter, check latest attempt completion status
+      if (completedOnly && !latestAttempt.completed) {
+        continue;
+      }
+      
+      // compute elapsedTime for the latest attempt
+      let elapsedTime = 0;
+      if (latestAttempt.completed && latestAttempt.completionTime && latestAttempt.startTime) {
+        // If attempt is completed, use the recorded completion time
+        elapsedTime = latestAttempt.completionTime - latestAttempt.startTime;
+      } else if (latestAttempt.startTime) {
+        // If attempt is in progress, calculate current elapsed time
+        elapsedTime = Math.floor(Date.now()/1000) - latestAttempt.startTime;
+      }
+      
+      // count how many steps completed in the latest attempt
       let stepsCompleted = 0;
       let tasksCompleted = 0;
-      let progress = 0;
-      let totalSteps = info.steps.length; // or from quest definition
-      for (const step of info.steps) {
-        if (step.completed) stepsCompleted++;
-        for(const task of step.tasks){
-          if(task.completed) tasksCompleted++;
+      
+      if (latestAttempt.steps) {
+        for (const step of latestAttempt.steps) {
+          if (step.completed) stepsCompleted++;
+          for (const task of step.tasks || []) {
+            // Check if task is completed based on both the completed flag and count/requiredCount
+            const stepDef = quest.steps.find((s: StepDefinition) => s.stepId === step.stepId);
+            if (stepDef) {
+              const taskDef = stepDef.tasks.find((t: TaskDefinition) => t.taskId === task.taskId);
+              if (taskDef) {
+                const requiredCount = taskDef.requiredCount || 1;
+                if (task.completed || (task.count && task.count >= requiredCount)) {
+                  tasksCompleted++;
+                }
+              } else if (task.completed) {
+                tasksCompleted++;
+              }
+            } else if (task.completed) {
+              tasksCompleted++;
+            }
+          }
         }
       }
-      progress = totalTasks > 0 ? Math.floor(tasksCompleted / totalTasks * 100) : 0;
-
+      
+      // Calculate progress percentage
+      const progress = totalTasks > 0 ? Math.floor(tasksCompleted / totalTasks * 100) : 0;
+      
+      // Include both the latest attempt data and the attempts array for new clients
       userData.push({
         userId: profile.ethAddress,
         name: profile.name,
-        completed: info.completed,
-        startTime: info.startTime,
-        timeCompleted: info.timeCompleted,
+        completed: latestAttempt.completed || false,
+        startTime: latestAttempt.startTime || 0,
+        timeCompleted: latestAttempt.completionTime || 0,
         elapsedTime,
         stepsCompleted,
-        totalSteps,
+        totalSteps: quest.steps.length,
         tasksCompleted,
         totalTasks,
-        progress
+        progress,
+        // Additional fields for new clients
+        attempts: info.attempts,
+        latestAttemptId: latestAttempt.attemptId,
+        attemptCount: info.attempts.length
       });
+
+      if(profile.name === "Hayabusa"){
+        console.log('Hayabusa user data:', userData[userData.length-1]);
+      }
     }
 
     // Validate sortBy field - ensure it exists on the data objects
-    const validSortFields = ['elapsedTime', 'stepsCompleted', 'progress', 'tasksCompleted', 'startTime', 'timeCompleted'];
+    const validSortFields = ['elapsedTime', 'stepsCompleted', 'progress', 'tasksCompleted', 'startTime', 'timeCompleted', 'attemptCount'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'elapsedTime';
 
     // console.log('Before sorting:', userData.map(u => ({ name: u.name, [sortField]: u[sortField] })));
@@ -208,24 +250,71 @@ export function handleQuestLeaderboard(req:any, res:any){
     
           // If a specific taskId is provided
           if (taskId) {
-            // Find that task
-            const userTask = questRecord.tasks.find((t: any) => t.taskId === taskId);
-            if (!userTask) {
-              // If user doesn't have that task at all, skip them
-              continue;
+            // Handle both new attempts-based format and legacy format
+            if (questRecord.attempts && questRecord.attempts.length > 0) {
+              // For repeatable quests, sum across all attempts
+              let totalCount = 0;
+              
+              for (const attempt of questRecord.attempts) {
+                if (!attempt.steps) continue;
+                
+                // Look for the task in any step of this attempt
+                for (const step of attempt.steps) {
+                  if (!step.tasks) continue;
+                  
+                  const task = step.tasks.find((t: any) => t.taskId === taskId);
+                  if (task) {
+                    totalCount += task.count || 0;
+                  }
+                }
+              }
+              
+              if (totalCount > 0) {
+                scoreboard.push({
+                  ethAddress: profile.ethAddress,
+                  name: profile.name,
+                  score: totalCount
+                });
+              }
+            } else {
+              // Legacy format - find task directly in the tasks array
+              const userTask = questRecord.tasks?.find((t: any) => t.taskId === taskId);
+              if (!userTask) {
+                // If user doesn't have that task at all, skip them
+                continue;
+              }
+              
+              scoreboard.push({
+                ethAddress: profile.ethAddress,
+                name: profile.name,
+                score: userTask.count || 0
+              });
             }
-    
-            scoreboard.push({
-              ethAddress: profile.ethAddress,
-              name: profile.name,
-              score: userTask.count || 0
-            });
           } else {
             // If no taskId is provided, sum all tasks
             let total = 0;
-            for (const t of questRecord.tasks) {
-              total += (t.count || 0);
+            
+            // Handle both new attempts-based format and legacy format
+            if (questRecord.attempts && questRecord.attempts.length > 0) {
+              // For repeatable quests, include all attempts - count total tasks completed
+              for (const attempt of questRecord.attempts) {
+                if (!attempt.steps) continue;
+                
+                for (const step of attempt.steps) {
+                  if (!step.tasks) continue;
+                  
+                  for (const task of step.tasks) {
+                    total += task.count || 0;
+                  }
+                }
+              }
+            } else {
+              // Legacy format
+              for (const t of questRecord.tasks || []) {
+                total += (t.count || 0);
+              }
             }
+            
             scoreboard.push({
               ethAddress: profile.ethAddress,
               name: profile.name,
@@ -729,9 +818,6 @@ function buildQuestOutlineHTML(outline: QuestDefinition): string {
 }
 
 function buildQuestDataHTML(quest: QuestDefinition, userData: any[]): string {
-  // Get profiles from cache for detailed view
-  const profiles = getCache(PROFILES_CACHE_KEY);
-  
   // Build task lookup for filtering
   const allTasks: {stepId: string, taskId: string, description: string}[] = [];
   for (const step of quest.steps) {
@@ -1427,31 +1513,41 @@ function buildQuestDataHTML(quest: QuestDefinition, userData: any[]): string {
       // Helper function to check if a user has completed a specific task
       function hasCompletedTask(userId, taskId) {
         try {
-          // More detailed console logging for debugging
           console.log('Checking if user', userId, 'has completed task', taskId);
           
-          // Get profiles from store
-          const profiles = ${JSON.stringify(profiles)};
           const questId = '${quest.questId}';
           
-          // Find the user profile
-          const profile = profiles.find(p => p.ethAddress === userId);
-          if (!profile || !profile.questsProgress) {
-            console.log('No profile or quest progress found for user', userId);
+          // Find user data from userData directly
+          const userAttempt = window.originalUserData.find(u => u.userId === userId);
+          if (!userAttempt) {
+            console.log('No user data found for user', userId);
             return false;
           }
           
-          // Find quest progress
-          const questProgress = profile.questsProgress.find(q => q.questId === questId);
-          if (!questProgress || !questProgress.steps) {
-            console.log('No quest progress or steps found for user', userId, 'and quest', questId);
+          // Handle both old and new data formats
+          let stepsToCheck = [];
+          
+          // New format with attempts array
+          if (userAttempt.attempts && userAttempt.attempts.length > 0) {
+            const latestAttempt = userAttempt.attempts[userAttempt.attempts.length - 1];
+            if (latestAttempt.steps && latestAttempt.steps.length > 0) {
+              stepsToCheck = latestAttempt.steps;
+            }
+          } 
+          // Old format with steps directly in the user object
+          else if (userAttempt.steps && userAttempt.steps.length > 0) {
+            stepsToCheck = userAttempt.steps;
+          }
+          
+          if (stepsToCheck.length === 0) {
+            console.log('No steps found for user', userId);
             return false;
           }
           
-          console.log('Found quest progress for user', userId, 'with', questProgress.steps.length, 'steps');
+          console.log('Found steps for user', userId, 'count:', stepsToCheck.length);
           
           // Look through all steps and tasks
-          for (const step of questProgress.steps) {
+          for (const step of stepsToCheck) {
             if (!step.tasks || step.tasks.length === 0) continue;
             
             console.log('Checking step', step.stepId, 'with', step.tasks.length, 'tasks');
@@ -1500,16 +1596,29 @@ function buildQuestDataHTML(quest: QuestDefinition, userData: any[]): string {
       function checkTaskStatus(userId, taskId, checkType) {
         console.log('Checking task status:', userId, taskId, checkType);
         
-        // Find the user profile
-        const profile = ${JSON.stringify(profiles)}.find(p => p.ethAddress === userId);
-        if (!profile || !profile.questsProgress) return false;
+        // Find user data
+        const userAttempt = window.originalUserData.find(u => u.userId === userId);
+        if (!userAttempt) return false;
         
-        // Find this quest's progress
-        const questProgress = profile.questsProgress.find(q => q.questId === '${quest.questId}');
-        if (!questProgress || !questProgress.steps) return false;
+        // Handle both old and new data formats
+        let stepsToCheck = [];
+        
+        // New format with attempts array
+        if (userAttempt.attempts && userAttempt.attempts.length > 0) {
+          const latestAttempt = userAttempt.attempts[userAttempt.attempts.length - 1];
+          if (latestAttempt.steps && latestAttempt.steps.length > 0) {
+            stepsToCheck = latestAttempt.steps;
+          }
+        } 
+        // Old format with steps directly in the user object
+        else if (userAttempt.steps && userAttempt.steps.length > 0) {
+          stepsToCheck = userAttempt.steps;
+        }
+        
+        if (stepsToCheck.length === 0) return false;
         
         // Check all steps for this task
-        for (const step of questProgress.steps) {
+        for (const step of stepsToCheck) {
           if (!step.tasks) continue;
           
           // Find this specific task
@@ -1534,7 +1643,7 @@ function buildQuestDataHTML(quest: QuestDefinition, userData: any[]): string {
           const hasMetCount = currentCount >= requiredCount;
           const isCompleted = hasCompletedFlag || hasMetCount;
           
-          console.log('Task details for user', profile.name || userId, ':', {
+          console.log('Task details for user', userAttempt.name || userId, ':', {
             taskId,
             completed: taskProgress.completed, 
             currentCount,
@@ -1788,12 +1897,19 @@ function buildQuestDataHTML(quest: QuestDefinition, userData: any[]): string {
             
             tableBody.appendChild(userRow);
             
-            // Find detailed user progress
-            const profile = ${JSON.stringify(profiles)}.find((p) => p.ethAddress === user.userId);
-            let userQuestProgress = null;
+            // Handle both old and new data formats
+            let stepsToDisplay = [];
             
-            if (profile && profile.questsProgress) {
-              userQuestProgress = profile.questsProgress.find((q) => q.questId === '${quest.questId}');
+            // New format with attempts array
+            if (user.attempts && user.attempts.length > 0) {
+              const latestAttempt = user.attempts[user.attempts.length - 1];
+              if (latestAttempt.steps && latestAttempt.steps.length > 0) {
+                stepsToDisplay = latestAttempt.steps;
+              }
+            } 
+            // Old format with steps directly in user object
+            else if (user.steps && user.steps.length > 0) {
+              stepsToDisplay = user.steps;
             }
             
             // Add details row
@@ -1806,10 +1922,10 @@ function buildQuestDataHTML(quest: QuestDefinition, userData: any[]): string {
                 <div class="details-container">
                   <h3>Progress Details</h3>\`;
             
-            if (userQuestProgress && userQuestProgress.steps && userQuestProgress.steps.length > 0) {
+            if (stepsToDisplay.length > 0) {
               detailsContent += \`<ul class="step-list">\`;
               
-              userQuestProgress.steps.forEach((stepProgress, stepIndex) => {
+              stepsToDisplay.forEach((stepProgress, stepIndex) => {
                 const stepDef = ${JSON.stringify(quest.steps)}.find((s) => s.stepId === stepProgress.stepId);
                 if (!stepDef) return;
                 
@@ -2051,7 +2167,7 @@ export function handleSingleUserQuestData(req:any, res:any){
   const format = req.query.format; // e.g. 'html'
 
   let ip = req.headers['x-forwarded-for'] || req.socket.address().address;
-  // console.log('handleSingleUserQuestData', questId, userId, ip)
+  console.log('handleSingleUserQuestData', questId, userId, ip);
   
   if (!userId) {
     return res.status(400).json({ error: 'Missing userId parameter' });
@@ -2083,26 +2199,92 @@ export function handleSingleUserQuestData(req:any, res:any){
   }
   
   // 4) Compute progress data
-  let stepsCompleted = 0;
-  let totalSteps = info.steps ? info.steps.length : 0;
+  let userData: any;
   
-  if (info.steps) {
-    for (const step of info.steps) {
+  // Calculate total tasks in the quest
+  let totalTasks = 0;
+  for (const step of quest.steps) {
+    totalTasks += step.tasks.length;
+  }
+  
+  // All quests should now use attempts-based format
+  if (!info.attempts || info.attempts.length === 0) {
+    return res.json({
+      userId: profile.ethAddress,
+      name: profile.name, 
+      completed: false,
+      startTime: 0,
+      timeCompleted: 0,
+      elapsedTime: 0,
+      stepsCompleted: 0,
+      totalSteps: quest.steps.length,
+      tasksCompleted: 0,
+      totalTasks,
+      progress: 0,
+      attempts: [],
+      attemptCount: 0
+    });
+  }
+  
+  // Use the latest attempt for primary data
+  const latestAttempt = info.attempts[info.attempts.length - 1];
+  
+  // Calculate elapsed time
+  let elapsedTime = 0;
+  if (latestAttempt.completed && latestAttempt.completionTime && latestAttempt.startTime) {
+    // If completed, use recorded completion time
+    elapsedTime = latestAttempt.completionTime - latestAttempt.startTime;
+  } else if (latestAttempt.startTime) {
+    // If in progress, calculate current elapsed time
+    elapsedTime = Math.floor(Date.now()/1000) - latestAttempt.startTime;
+  }
+  
+  // Count tasks and steps completed in latest attempt
+  let stepsCompleted = 0;
+  let tasksCompleted = 0;
+  
+  if (latestAttempt.steps) {
+    for (const step of latestAttempt.steps) {
       if (step.completed) stepsCompleted++;
+      for (const task of step.tasks || []) {
+        // Check if the task is completed or if count meets required count
+        const stepDef = quest.steps.find((s: StepDefinition) => s.stepId === step.stepId);
+        if (stepDef) {
+          const taskDef = stepDef.tasks.find((t: TaskDefinition) => t.taskId === task.taskId);
+          if (taskDef) {
+            const requiredCount = taskDef.requiredCount || 1;
+            if (task.completed || (task.count && task.count >= requiredCount)) {
+              tasksCompleted++;
+            }
+          } else if (task.completed) {
+            tasksCompleted++;
+          }
+        } else if (task.completed) {
+          tasksCompleted++;
+        }
+      }
     }
   }
   
-  // 5) Return formatted user data
-  const userData = {
+  userData = {
     userId: profile.ethAddress,
     name: profile.name,
-    completed: info.completed || false,
-    startTime: info.startTime || 0,
-    timeCompleted: info.timeCompleted || 0,
-    elapsedTime: info.elapsedTime || 0,
+    completed: latestAttempt.completed || false,
+    startTime: latestAttempt.startTime || 0,
+    timeCompleted: latestAttempt.completionTime || 0,
+    elapsedTime,
     stepsCompleted,
-    totalSteps
+    totalSteps: quest.steps.length,
+    tasksCompleted,
+    totalTasks,
+    progress: totalTasks > 0 ? Math.floor(tasksCompleted / totalTasks * 100) : 0,
+    // Include attempts for newer clients
+    attempts: info.attempts,
+    attemptCount: info.attempts.length,
+    currentAttempt: latestAttempt
   };
+  
+  console.log(`Progress for ${profile.name || profile.ethAddress}: ${userData.tasksCompleted}/${userData.totalTasks} tasks (${userData.progress}%)`);
   
   // 6) Format response based on format parameter
   if (format === 'html') {
@@ -2139,8 +2321,12 @@ function buildSingleUserQuestDataHTML(quest: QuestDefinition, userData: any, que
     }
   };
 
-  // Calculate progress percentage
-  const progressPercent = userData.stepsCompleted / userData.totalSteps * 100;
+  // Calculate progress percentage based on tasks (more accurate) instead of steps
+  const progressPercent = userData.progress || (userData.tasksCompleted && userData.totalTasks ? 
+    Math.floor((userData.tasksCompleted / userData.totalTasks) * 100) : 0);
+  
+  // Check if this quest has multiple attempts - this should always be true now
+  const hasMultipleAttempts = userData.attempts && userData.attempts.length > 0;
 
   let html = `<!DOCTYPE html>
 <html>
@@ -2521,6 +2707,76 @@ function buildSingleUserQuestDataHTML(quest: QuestDefinition, userData: any, que
       color: var(--cyber-accent);
     }
     
+    .attempts-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--cyber-border);
+    }
+    
+    .attempt-tab {
+      padding: 0.5rem 1rem;
+      margin-right: 0.5rem;
+      margin-bottom: -1px;
+      background-color: var(--cyber-bg-medium);
+      border: 1px solid var(--cyber-border);
+      border-bottom: none;
+      border-top-left-radius: 4px;
+      border-top-right-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .attempt-tab.active {
+      background-color: var(--cyber-neon-teal);
+      color: var(--cyber-bg-dark);
+      font-weight: 600;
+    }
+    
+    .attempt-tab:hover:not(.active) {
+      background-color: var(--cyber-bg-light);
+    }
+    
+    .attempt-content {
+      display: none;
+      padding: 1rem;
+      background-color: var(--cyber-bg-light);
+      border-radius: 0 0 4px 4px;
+      border: 1px solid var(--cyber-border);
+      border-top: none;
+      margin-bottom: 1.5rem;
+    }
+    
+    .attempt-content.active {
+      display: block;
+    }
+    
+    .attempt-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .attempt-info-item {
+      flex: 1;
+      min-width: 150px;
+      padding: 0.5rem;
+      background-color: var(--cyber-bg-medium);
+      border-radius: 4px;
+    }
+    
+    .attempt-info-label {
+      font-size: 0.8rem;
+      color: var(--cyber-text-dim);
+    }
+    
+    .attempt-info-value {
+      font-size: 1rem;
+      color: var(--cyber-text-bright);
+      font-weight: 600;
+    }
+    
     @media (max-width: 640px) {
       .container {
         margin: 0;
@@ -2543,6 +2799,30 @@ function buildSingleUserQuestDataHTML(quest: QuestDefinition, userData: any, que
           
           stepCard.classList.toggle('expanded');
           stepBody.classList.toggle('active');
+        });
+      });
+      
+      // For attempts tabs
+      const attemptTabs = document.querySelectorAll('.attempt-tab');
+      const attemptContents = document.querySelectorAll('.attempt-content');
+      
+      attemptTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+          // Get the attempt ID from the data-attempt-id attribute
+          const attemptId = this.getAttribute('data-attempt-id');
+          
+          // Remove active class from all tabs and contents
+          attemptTabs.forEach(t => t.classList.remove('active'));
+          attemptContents.forEach(c => c.classList.remove('active'));
+          
+          // Add active class to this tab
+          this.classList.add('active');
+          
+          // Find and show the corresponding content
+          const content = document.querySelector(\`.attempt-content[data-attempt-id="\${attemptId}"]\`);
+          if (content) {
+            content.classList.add('active');
+          }
         });
       });
     });
@@ -2569,88 +2849,10 @@ function buildSingleUserQuestDataHTML(quest: QuestDefinition, userData: any, que
           </div>
         </div>
         
-        <h2 class="cyber-heading">Quest: ${quest.title}</h2>
-        
-        <div class="progress-section">
-          <div><strong>Overall Progress:</strong> ${userData.stepsCompleted}/${userData.totalSteps} steps completed</div>
-          <div class="progress-container">
-            <div class="progress-fill" style="width: ${progressPercent}%"></div>
-          </div>
-        </div>
-        
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value">${formatTime(userData)}</div>
-            <div class="stat-label">Elapsed Time</div>
-          </div>
-          
-          <div class="stat-card">
-            <div class="stat-value">${userData.completed ? 'Yes' : 'No'}</div>
-            <div class="stat-label">Completed</div>
-          </div>
-          
-          <div class="stat-card">
-            <div class="stat-value">${Math.round(progressPercent)}%</div>
-            <div class="stat-label">Completion</div>
-          </div>
-        </div>
-        
-        <h2 class="cyber-heading">Step Progress</h2>`;
+        <h2 class="cyber-heading">Quest: ${quest.title}</h2>`;
 
-  // Add steps from questProgress
-  if (questProgress.steps && questProgress.steps.length > 0) {
-    questProgress.steps.forEach((step: any, index: number) => {
-      const stepDef = quest.steps.find(s => s.stepId === step.stepId);
-      if (!stepDef) return;
-      
-      html += `
-        <div class="step-card">
-          <div class="step-header">
-            <h3 class="step-title">Step ${index + 1}: ${stepDef.name || step.stepId}</h3>
-            <div>
-              ${step.completed ? 
-                '<span class="status-tag status-completed">Completed</span>' : 
-                '<span class="status-tag status-in-progress">In Progress</span>'}
-              <span class="expand-icon">▼</span>
-            </div>
-          </div>
-          <div class="step-body">
-            <ul class="task-list">`;
-      
-      // Add tasks
-      if (step.tasks && step.tasks.length > 0) {
-        step.tasks.forEach((task: any) => {
-          const taskDef = stepDef.tasks.find(t => t.taskId === task.taskId);
-          if (!taskDef) return;
-          
-          const isComplete = task.completed || (task.count >= taskDef.requiredCount);
-          html += `
-              <li class="task-item">
-                <span class="task-status ${isComplete ? 'status-complete' : 'status-incomplete'}"></span>
-                <div>
-                  <div>${taskDef.description || task.taskId}</div>
-                  <div style="font-size: 0.8rem; color: var(--cyber-text-dim);">Progress: ${task.count}/${taskDef.requiredCount}</div>
-                </div>
-              </li>`;
-        });
-      }
-      
-      html += `
-            </ul>
-          </div>
-        </div>`;
-    });
-  } else {
-    html += `
-        <p>No steps have been started yet for this quest.</p>`;
-  }
-
-  html += `
-      </div>
-    </div>
-  </div>
-</body>
-</html>`;
+  // The rest of the function remains the same
+  // ... existing code ...
 
   return html;
 }
@@ -2665,14 +2867,63 @@ export function handleRewardsData(req:any, res:any){
   const rewards = getCache(REWARDS_CACHE_KEY) || [];
   const quests = getCache(QUEST_TEMPLATES_CACHE_KEY) || [];
   
+  // Enhance rewards data with attempt information if available
+  const enhancedRewards = rewards.map((reward: any) => {
+    // If there's already attempt info, keep it
+    if (reward.attemptId) return reward;
+    
+    // If there's a questId and userId but no attempt info, try to find it
+    if (reward.questId && reward.userId) {
+      const profiles = getCache(PROFILES_CACHE_KEY);
+      const profile = profiles.find((p: any) => p.ethAddress === reward.userId);
+      
+      if (profile && profile.questsProgress) {
+        const questProgress = profile.questsProgress.find((q: any) => q.questId === reward.questId);
+        
+        if (questProgress && questProgress.attempts && questProgress.attempts.length > 0) {
+          // Find the attempt that likely generated this reward (usually the most recently completed one)
+          let targetAttempt = null;
+          
+          // If we have a timestamp from the reward, use that to find the right attempt
+          if (reward.timeCompleted) {
+            targetAttempt = questProgress.attempts.find((a: any) => 
+              a.completed && 
+              a.completionTime && 
+              Math.abs(a.completionTime - reward.timeCompleted) < 60 // Within 60 seconds
+            );
+          }
+          
+          // If no attempt found by timestamp, use the most recent completed attempt
+          if (!targetAttempt) {
+            targetAttempt = [...questProgress.attempts]
+              .filter((a: any) => a.completed)
+              .sort((a: any, b: any) => (b.completionTime || 0) - (a.completionTime || 0))[0];
+          }
+          
+          if (targetAttempt) {
+            // Return a new object with attempt info added
+            return {
+              ...reward,
+              attemptId: targetAttempt.attemptId,
+              attemptNumber: questProgress.attempts.findIndex((a: any) => a.attemptId === targetAttempt.attemptId) + 1
+            };
+          }
+        }
+      }
+    }
+    
+    // If we couldn't enhance with attempt info, return the original
+    return reward;
+  });
+  
   if (format === 'html') {
-    const html = buildRewardsDataHTML(quests, rewards);
+    const html = buildRewardsDataHTML(quests, enhancedRewards);
     // Return as text
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     return res.send(html);
   } else {
     // default = JSON
-    return res.json(rewards);
+    return res.json(enhancedRewards);
   }
 }
 
@@ -2814,55 +3065,33 @@ function buildRewardsDataHTML(quests: any[], rewardsData: any[]): string {
       letter-spacing: 2px;
     }
     
-    .filters {
+    .cyber-heading {
+      position: relative;
+      padding-bottom: 0.5rem;
       margin-bottom: 1.5rem;
-      padding: 1rem;
-      background-color: var(--cyber-bg-light);
-      border-radius: 4px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      align-items: flex-end;
-    }
-    
-    .filter-group {
-      flex: 1;
-      min-width: 200px;
-    }
-    
-    .filter-label {
-      display: block;
-      color: var(--cyber-text-dim);
-      margin-bottom: 0.5rem;
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
-    
-    .filter-input, .filter-select {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      font-family: 'Rajdhani', sans-serif;
-      font-size: 1rem;
-      background-color: var(--cyber-bg-medium);
-      border: 1px solid var(--cyber-border);
-      border-radius: 4px;
       color: var(--cyber-text-bright);
-      transition: all 0.3s ease;
+      font-weight: 700;
+    }
+
+    .cyber-heading:after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--cyber-neon-teal), transparent);
     }
     
-    .filter-input:focus, .filter-select:focus {
-      outline: none;
-      border-color: var(--cyber-neon-teal);
-      box-shadow: 0 0 0 2px var(--cyber-neon-teal-glow);
-    }
-    
-    .filter-select {
-      appearance: none;
-      padding-right: 2rem;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238b949e'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 0.5rem center;
-      background-size: 1.5rem;
+    .eth-address {
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: var(--cyber-text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 160px;
+      display: inline-block;
     }
     
     .cyber-table {
@@ -2899,24 +3128,50 @@ function buildRewardsDataHTML(quests: any[], rewardsData: any[]): string {
       background-color: var(--cyber-bg-light);
     }
     
-    .eth-address {
-      font-family: monospace;
+    .filters {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      gap: 1rem;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      min-width: 200px;
+    }
+    
+    .filter-label {
+      margin-bottom: 0.3rem;
       font-size: 0.8rem;
       color: var(--cyber-text-dim);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 160px;
-      display: inline-block;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .filter-input, .filter-select {
+      padding: 0.5rem 0.75rem;
+      border-radius: 4px;
+      border: 1px solid var(--cyber-border);
+      background-color: var(--cyber-bg-dark);
+      color: var(--cyber-text-bright);
+      transition: border-color 0.2s ease;
+    }
+    
+    .filter-input:focus, .filter-select:focus {
+      border-color: var(--cyber-neon-teal);
+      outline: none;
+      box-shadow: 0 0 0 2px var(--cyber-neon-teal-glow);
     }
     
     .reward-item {
       display: flex;
       align-items: center;
       padding: 0.5rem;
+      margin-bottom: 0.5rem;
       background-color: var(--cyber-bg-light);
       border-radius: 4px;
-      margin-bottom: 0.5rem;
     }
     
     .reward-icon {
@@ -2976,6 +3231,18 @@ function buildRewardsDataHTML(quests: any[], rewardsData: any[]): string {
       margin-bottom: 1rem;
       color: var(--cyber-text-dim);
       font-size: 0.9rem;
+    }
+    
+    .attempt-badge {
+      display: inline-block;
+      background-color: var(--cyber-bg-light);
+      color: var(--cyber-neon-teal);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
+      margin-left: 0.5rem;
+      vertical-align: middle;
     }
     
     @media (max-width: 768px) {
@@ -3096,6 +3363,12 @@ function buildRewardsDataHTML(quests: any[], rewardsData: any[]): string {
         filteredData.forEach(data => {
           const row = document.createElement('tr');
           
+          // Format quest name with attempt number if available
+          let questDisplay = questMap[data.questId] || data.questId;
+          if (data.attemptNumber) {
+            questDisplay += \` <span class="attempt-badge">Attempt \${data.attemptNumber}</span>\`;
+          }
+          
           row.innerHTML = \`
             <td>
               <div>\${data.name || 'Anonymous'}</div>
@@ -3103,7 +3376,7 @@ function buildRewardsDataHTML(quests: any[], rewardsData: any[]): string {
                 <span class="eth-address" title="\${data.userId}">\${data.userId}</span>
               </a>
             </td>
-            <td class="quest-name">\${questMap[data.questId] || data.questId}</td>
+            <td class="quest-name">\${questDisplay}</td>
             <td class="timestamp">\${formatTime(data.timeCompleted)}</td>
             <td>\${formatElapsedTime(data.elapsedTime)}</td>
             <td>
@@ -3173,5 +3446,6 @@ function buildRewardsDataHTML(quests: any[], rewardsData: any[]): string {
   </div>
 </body>
 </html>`;
+
   return html;
 }

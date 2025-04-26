@@ -1,7 +1,8 @@
 import { Client } from "colyseus";
 import { TokenManager } from "../TokenManager";
 import { updateCache } from "../../utils/cache";
-import { TOKENS_FILE, TOKENS_CACHE_KEY } from "../../utils/initializer";
+import { TOKENS_FILE, TOKENS_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE } from "../../utils/initializer";
+import { getCache } from "../../utils/cache";
 
 // Create a singleton token manager
 const tokenManager = new TokenManager();
@@ -150,5 +151,73 @@ export function handleUpdateTokenSupply(client: Client, message: any) {
   } catch (error: any) {
     console.error("Error updating token supply:", error);
     client.send("TOKEN_ERROR", { message: error.message || "Failed to update token supply" });
+  }
+}
+
+/**
+ * Handle user inventory request
+ */
+export function handleInventoryRequest(client: Client, message: any) {
+  console.log("handleInventoryRequest", message);
+  
+  try {
+    const requestingUserId = client.userData?.userId;
+    const targetUserId = message.userId || requestingUserId;
+    
+    // If requesting data for another user, check permissions
+    if (targetUserId !== requestingUserId && requestingUserId !== "Admin") {
+      client.send("INVENTORY_ERROR", { message: "Not authorized to view other user's inventory" });
+      return;
+    }
+
+    // Find user profile
+    const profiles = getCache(PROFILES_CACHE_KEY);
+    const userProfile = profiles.find((profile: any) => profile.ethAddress === targetUserId);
+    
+    if (!userProfile) {
+      client.send("INVENTORY_ERROR", { message: "User profile not found" });
+      return;
+    }
+
+    // Get token balances from profile
+    const tokenBalances = userProfile.tokenBalances || {};
+    const tokens = userProfile.tokens || [];
+
+    // Enrich token data with full token details
+    const enrichedTokens = [];
+    
+    for (const token of tokens) {
+      // For CREATOR_TOKENs, get the latest data from the TokenManager
+      // For other item types, use the data already in the profile
+      if (token.token && token.token.kind === 'CREATOR_TOKEN') {
+        const fullTokenData = tokenManager.getTokenById(token.id);
+        if (fullTokenData) {
+          // If we found the token in TokenManager, use that data
+          enrichedTokens.push({
+            ...token,
+            token: {
+              ...fullTokenData,
+              kind: 'CREATOR_TOKEN' // Ensure kind is set
+            }
+          });
+        } else {
+          // If token not found in TokenManager but exists in profile, keep original data
+          enrichedTokens.push(token);
+        }
+      } else {
+        // For non-CREATOR_TOKEN items, use the data already in the profile
+        enrichedTokens.push(token);
+      }
+    }
+
+    // Send inventory to client
+    client.send("INVENTORY_UPDATE", { 
+      success: true, 
+      tokens: enrichedTokens,
+      userId: targetUserId
+    });
+  } catch (error: any) {
+    console.error("Error getting user inventory:", error);
+    client.send("INVENTORY_ERROR", { message: error.message || "Failed to get inventory" });
   }
 } 
