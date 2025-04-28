@@ -39,7 +39,8 @@ export class WebAppRoom extends Room<WebAppState> {
     setWebAppRoom(this)
     // Creator dashboard data handlers
     this.onMessage("GET_CREATOR_DATA", (client: Client, message: any) => {
-      this.handleGetCreatorData(client, message);
+      // this.handleGetCreatorData(client, message);
+      this.sendInitialData(client);
     });
     
     // Quest creator handlers
