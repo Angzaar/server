@@ -6,35 +6,8 @@ import { QuestDefinition, LegacyQuestDefinition, EphemeralCodeData, StepDefiniti
 import { getRandomString } from "../../utils/questing";
 import { validateAndCreateProfile } from "../../rooms/MainRoomHandlers";
 import { sanitizeUserQuestData, createNewQuestAttempt, canReplayTimeBasedQuest, syncQuestToCache } from "./utils/functions";  
-import { addQuestRoom, removeQuestRoom } from "../../rooms";
-import { loadQuest, handleStartQuest, handleQuestAction, handleForceCompleteTask, handleSimulateTimeAdvance, handleIncrementTaskCount } from "./Handlers";
-import { handleCreateVerse, handleEditVerse, handleDeleteVerse } from "./VerseHandlers";
-import { handleCreateReward, handleDeleteReward, handleEditReward } from "./RewardHandlers";
-import { handleQuestOutline, handleQuestStats } from "./DataHandlers";
-import { handleCreateQuest, handleEditQuest, handleEndQuest, handleResetQuest, handleDeleteQuest } from "./QuestCreatorHandlers";
-import { handleCreateToken, handleTokenDetails, handleListTokens, handleUpdateTokenSupply, handleInventoryRequest } from "./TokenHandlers";
-import { TokenManager } from "../TokenManager";
-import { handleMarketplacePurchase } from "./MarketplaceHandler";
-
-// Add the handleGetCreatorData function to support returning from marketplace
-const handleGetCreatorData = (client: Client, message: any) => {
-  console.log("Handling GET_CREATOR_DATA request for userId:", client.userData.userId);
-  
-  // Get all needed data for the dashboard
-  let quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
-  let verses = getCache(VERSES_CACHE_KEY);
-  let rewards = getCache(REWARDS_CACHE_KEY);
-  const tokenManager = new TokenManager();
-  const tokens = tokenManager.getTokensByCreator(client.userData.userId);
-
-  // Filter data for the current user
-  client.send("QUEST_CREATOR", {
-    quests: quests.filter((q: any) => q.creator === client.userData.userId),
-    verses: verses.filter((v: any) => v.creator === client.userData.userId || v.public === true),
-    rewards: rewards.filter((r: any) => r.creator === client.userData.userId),
-    tokens: tokens
-  });
-};
+import { addQuestRoom, removeQuestRoom } from "./index";
+import { loadQuest, handleStartQuest, handleQuestAction, handleSimulateTimeAdvance } from "./Handlers";
 
 export const ephemeralCodes: Record<string, EphemeralCodeData> = {};
 
@@ -78,24 +51,7 @@ export class QuestRoom extends Room<QuestState> {
       }
     }
 
-        
-    // Register handler for subsequent data loads (e.g. when returning from marketplace)
-    this.onMessage("GET_CREATOR_DATA", (client: Client, message: any) =>
-      handleGetCreatorData(client, message)
-    );
-
-    this.onMessage("QUEST_CREATE", (client: Client, message: any) =>
-      handleCreateQuest(client, message)
-    );
-    this.onMessage("QUEST_RESET", (client: Client, message: any) =>
-      handleResetQuest(this, client, message)
-    );
-    this.onMessage("QUEST_EDIT", (client: Client, message: any) =>
-      handleEditQuest(client, message)
-    );
-    this.onMessage("QUEST_DELETE", (client: Client, message: any) =>
-      handleDeleteQuest(this, client, message)
-    );
+    // Register only quest-specific functionality
     this.onMessage("QUEST_START", (client: Client, message: any) =>
       handleStartQuest(this, client, message)
     );
@@ -107,75 +63,10 @@ export class QuestRoom extends Room<QuestState> {
       message.forceReplay = true;
       handleQuestAction(this, client, message)
     });
-    this.onMessage("QUEST_END", (client: Client, message: any) =>
-      handleEndQuest(this, client, message)
-    );
-
-    this.onMessage("QUEST_OUTLINE", (client: Client, message: any) =>
-      handleQuestOutline(this, client, message)
-    );
-
-    this.onMessage("QUEST_STATS", (client: Client, message: any) =>
-      handleQuestStats(this, client, message)
-    );
-
-    this.onMessage("FORCE_COMPLETE_TASK", (client: Client, message: any) =>
-      handleForceCompleteTask(this, client, message)
-    );
     
-    this.onMessage("INCREMENT_TASK_COUNT", (client: Client, message: any) =>
-      handleIncrementTaskCount(this, client, message)
-    );
-
     // Add the time simulation handler for testing purposes
     this.onMessage("SIMULATE_TIME_ADVANCE", (client: Client, message: any) =>
       handleSimulateTimeAdvance(this, client, message)
-    );
-
-    // Verse-related message handlers
-    this.onMessage("VERSE_CREATE", (client: Client, message: any) =>
-      handleCreateVerse(client, message)
-    );
-    this.onMessage("VERSE_EDIT", (client: Client, message: any) =>
-      handleEditVerse(client, message)
-    );
-    this.onMessage("VERSE_DELETE", (client: Client, message: any) =>
-      handleDeleteVerse(client, message)
-    );
-
-    this.onMessage("QUEST_CREATOR", handleCreateQuest.bind(this));
-    this.onMessage("REWARD_CREATE", (client: Client, message: any) =>
-      handleCreateReward(client, message)
-    );
-    this.onMessage("REWARD_EDIT", (client: Client, message: any) =>
-      handleEditReward(client, message)
-    );
-    this.onMessage("REWARD_DELETE", (client: Client, message: any) =>
-      handleDeleteReward(client, message)
-    );
-
-    // Register token message handlers
-    this.onMessage("TOKEN_CREATE", (client: Client, message: any) =>
-      handleCreateToken(client, message)
-    );
-    this.onMessage("TOKEN_DETAILS", (client: Client, message: any) =>
-      handleTokenDetails(client, message)
-    );
-    this.onMessage("TOKEN_LIST", (client: Client, message: any) =>
-      handleListTokens(client, message)
-    );
-    this.onMessage("TOKEN_UPDATE_SUPPLY", (client: Client, message: any) =>
-      handleUpdateTokenSupply(client, message)
-    );
-    
-    // Register inventory message handler
-    this.onMessage("INVENTORY_REQUEST", (client: Client, message: any) =>
-      handleInventoryRequest(client, message)
-    );
-
-    // Register marketplace purchase handler
-    this.onMessage("MARKETPLACE_PURCHASE", (client: Client, message: any) =>
-      handleMarketplacePurchase(client, message)
     );
   }
 
@@ -359,55 +250,6 @@ export class QuestRoom extends Room<QuestState> {
 
   onJoin(client: Client, options: any) {
     console.log(`Quest Room ${this.state.questId} Client joined, userId=${options.userId}`);
-
-    if(options.questId === "creator"){
-      let quests = getCache(QUEST_TEMPLATES_CACHE_KEY)
-      let verses = getCache(VERSES_CACHE_KEY)
-      let rewards = getCache(REWARDS_CACHE_KEY)
-      const tokenManager = new TokenManager();
-      const tokens = tokenManager.getTokensByCreator(client.userData.userId);
-      
-      // Send creator data
-      client.send("QUEST_CREATOR", {
-        quests: quests.filter((q:any) => q.creator === client.userData.userId),
-        verses: verses.filter((v:any) => v.creator === client.userData.userId || v.public),
-        rewards: rewards.filter((r:any) => r.creator === client.userData.userId),
-        tokens: tokens
-      });
-      
-      // Also send inventory data for the user
-      // Get the user's inventory/token balances
-      const profiles = getCache(PROFILES_CACHE_KEY);
-      const profile = profiles.find((p: any) => p.ethAddress === client.userData.userId);
-      
-      if (profile) {
-        // Get tokens and token balances from the profile
-        const tokens = profile.tokens || [];
-        
-        // Enrich token data if needed (similar to handleInventoryRequest)
-        const enrichedTokens = tokens.map((token: any) => {
-          if (token.token && token.token.kind === 'CREATOR_TOKEN') {
-            const fullTokenData = tokenManager.getTokenById(token.id);
-            if (fullTokenData) {
-              return {
-                ...token,
-                token: {
-                  ...fullTokenData,
-                  kind: 'CREATOR_TOKEN'
-                }
-              };
-            }
-          }
-          return token;
-        });
-        
-        // Send inventory update
-        client.send("INVENTORY_UPDATE", { 
-          inventory: enrichedTokens 
-        });
-      }
-      return
-    }
 
     if(!this.questDefinition){
         if(!loadQuest(this, options.questId)){

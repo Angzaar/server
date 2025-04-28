@@ -3,6 +3,7 @@ import { TokenManager } from "../TokenManager";
 import { updateCache } from "../../utils/cache";
 import { TOKENS_FILE, TOKENS_CACHE_KEY, PROFILES_CACHE_KEY, PROFILES_FILE } from "../../utils/initializer";
 import { getCache } from "../../utils/cache";
+import { CreatorToken } from "./utils/types";
 
 // Create a singleton token manager
 const tokenManager = new TokenManager();
@@ -180,34 +181,44 @@ export function handleInventoryRequest(client: Client, message: any) {
     }
 
     // Get token balances from profile
-    const tokenBalances = userProfile.tokenBalances || {};
     const tokens = userProfile.tokens || [];
 
     // Enrich token data with full token details
     const enrichedTokens = [];
     
-    for (const token of tokens) {
+    for (const userToken of tokens) {
+      const token:any | null = tokenManager.getTokenById(userToken.id);
+      if(!token) continue;
+
+      enrichedTokens.push({
+        ...userToken,
+        token: {
+          ...token,
+          kind: 'CREATOR_TOKEN' // Ensure kind is set
+        }
+      });
+
       // For CREATOR_TOKENs, get the latest data from the TokenManager
       // For other item types, use the data already in the profile
-      if (token.token && token.token.kind === 'CREATOR_TOKEN') {
-        const fullTokenData = tokenManager.getTokenById(token.id);
-        if (fullTokenData) {
-          // If we found the token in TokenManager, use that data
-          enrichedTokens.push({
-            ...token,
-            token: {
-              ...fullTokenData,
-              kind: 'CREATOR_TOKEN' // Ensure kind is set
-            }
-          });
-        } else {
-          // If token not found in TokenManager but exists in profile, keep original data
-          enrichedTokens.push(token);
-        }
-      } else {
-        // For non-CREATOR_TOKEN items, use the data already in the profile
-        enrichedTokens.push(token);
-      }
+      // if (token.kind === 'CREATOR_TOKEN') {
+      //   const fullTokenData = tokenManager.getTokenById(token.id);
+      //   if (fullTokenData) {
+      //     // If we found the token in TokenManager, use that data
+      //     enrichedTokens.push({
+      //       ...userToken,
+      //       token: {
+      //         ...fullTokenData,
+      //         kind: 'CREATOR_TOKEN' // Ensure kind is set
+      //       }
+      //     });
+      //   } else {
+      //     // If token not found in TokenManager but exists in profile, keep original data
+      //     enrichedTokens.push(token);
+      //   }
+      // } else {
+      //   // For non-CREATOR_TOKEN items, use the data already in the profile
+      //   enrichedTokens.push(token);
+      // }
     }
 
     // Send inventory to client

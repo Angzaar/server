@@ -731,3 +731,204 @@ export function processTaskCompletion(room: QuestRoom, questId: string, stepId: 
     userQuestInfo
   };
 }
+
+// Sanitize user quest data for the WebApp room case (without a loaded quest definition)
+export function sanitizeWebAppQuestData(quest: any, userQuestInfo: any) {
+  if (!userQuestInfo || !quest) return null;
+  
+  // Initialize attempts array if it doesn't exist
+  if (!userQuestInfo.attempts || !Array.isArray(userQuestInfo.attempts)) {
+    userQuestInfo.attempts = [];
+    
+    // If there's existing quest progress, migrate it to the first attempt
+    if (userQuestInfo.completed || userQuestInfo.started || (userQuestInfo.steps && userQuestInfo.steps.length > 0)) {
+      const initialAttempt = {
+        attemptId: generateId(),
+        attemptNumber: 1,
+        startTime: userQuestInfo.startTime || Math.floor(Date.now()/1000),
+        completionTime: userQuestInfo.completionTime || 0,
+        elapsedTime: userQuestInfo.elapsedTime || 0,
+        completed: userQuestInfo.completed || false,
+        started: userQuestInfo.started || true,
+        steps: userQuestInfo.steps || [],
+        status: userQuestInfo.completed ? 'completed' : 'in-progress'
+      };
+      
+      userQuestInfo.attempts.push(initialAttempt);
+      
+      // For backward compatibility, keep the old fields referencing current attempt
+      userQuestInfo.currentAttemptId = initialAttempt.attemptId;
+    }
+  }
+  
+  // Get the current/latest attempt (may be null if no attempts)
+  const currentAttempt = userQuestInfo.attempts.length > 0
+    ? userQuestInfo.attempts[userQuestInfo.attempts.length - 1]
+    : null;
+  
+  // Calculate progress metrics for the current attempt
+  const totalSteps = quest.steps.length;
+  let stepsCompleted = 0;
+  
+  let steps: any[] = [];
+  if (currentAttempt) {
+    // Ensure steps is always an array
+    steps = Array.isArray(currentAttempt.steps) ? currentAttempt.steps : [];
+    if (steps && steps.length > 0) {
+      for (const step of steps) {
+      if (step.completed) stepsCompleted++;
+      }
+    }
+  }
+  
+  // Calculate total tasks and completed tasks
+  let totalTasks = 0;
+  let tasksCompleted = 0;
+  
+  quest.steps.forEach((stepDef: any) => {
+    totalTasks += stepDef.tasks.length;
+    
+    // Find matching user step in current attempt
+    if (currentAttempt && currentAttempt.steps) {
+      const userStep = currentAttempt.steps.find((s: any) => s.stepId === stepDef.stepId);
+    if (userStep && userStep.tasks) {
+      userStep.tasks.forEach((t: any) => {
+        const taskDef = stepDef.tasks.find((td: any) => td.taskId === t.taskId);
+        if (taskDef && (t.completed || (t.count >= taskDef.requiredCount))) {
+          tasksCompleted++;
+        }
+      });
+      }
+    }
+  });
+  
+  // Calculate progress percentages
+  const progressPercent = totalSteps > 0 ? (stepsCompleted / totalSteps) * 100 : 0;
+  const taskProgressPercent = totalTasks > 0 ? (tasksCompleted / totalTasks) * 100 : 0;
+  
+  // Create time-based quest information
+  let timeBasedInfo: {
+    isTimeBased: boolean;
+    timeWindow: string;
+    completionCount: number;
+    attemptNumber: number;
+    nextResetTime?: number;
+    attempts: any[];
+  } | null = null;
+  
+  if (quest.timeWindow) {
+    timeBasedInfo = {
+      isTimeBased: true,
+      timeWindow: quest.timeWindow,
+      completionCount: userQuestInfo.completionCount || 0,
+      attemptNumber: currentAttempt?.attemptNumber || 1,
+      attempts: userQuestInfo.attempts.map((attempt: any) => ({
+        attemptId: attempt.attemptId,
+        attemptNumber: attempt.attemptNumber || 1,
+        startTime: attempt.startTime,
+        completionTime: attempt.completionTime,
+        elapsedTime: attempt.elapsedTime,
+        completed: attempt.completed,
+        status: attempt.status || (attempt.completed ? 'completed' : 'in-progress')
+      }))
+    };
+    
+    // Add next reset time for daily/weekly quests if current attempt is completed
+    if (currentAttempt?.completed && quest.completionMode === 'REPEATABLE') {
+      if (quest.timeWindow === 'daily') {
+        const nextDay = new Date();
+        nextDay.setUTCHours(0, 0, 0, 0);
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        timeBasedInfo.nextResetTime = Math.floor(nextDay.getTime() / 1000);
+      } 
+      else if (quest.timeWindow === 'weekly') {
+        const nextWeek = new Date();
+        const daysUntilMonday = (1 + 7 - nextWeek.getUTCDay()) % 7;
+        nextWeek.setUTCHours(0, 0, 0, 0);
+        nextWeek.setUTCDate(nextWeek.getUTCDate() + daysUntilMonday);
+        timeBasedInfo.nextResetTime = Math.floor(nextWeek.getTime() / 1000);
+      }
+      else if (quest.timeWindow.includes('/')) {
+        const [_, endDateStr] = quest.timeWindow.split('/');
+        const endDate = new Date(endDateStr);
+        timeBasedInfo.nextResetTime = Math.floor(endDate.getTime() / 1000);
+      }
+    }
+  }
+  
+  // Create a deep copy with descriptive fields but without IDs
+  const sanitized = {
+    ...userQuestInfo,
+    title: quest.title || 'Untitled Quest',
+    
+    // Add attempt data
+    currentAttempt: currentAttempt ? {
+      attemptId: currentAttempt.attemptId,
+      attemptNumber: currentAttempt.attemptNumber || 1,
+      started: currentAttempt.started,
+      completed: currentAttempt.completed,
+      startTime: currentAttempt.startTime,
+      completionTime: currentAttempt.completionTime,
+      elapsedTime: currentAttempt.elapsedTime,
+      status: currentAttempt.status || (currentAttempt.completed ? 'completed' : 'in-progress')
+    } : null,
+    
+    // Add progress data
+    totalSteps,
+    stepsCompleted,
+    progress: progressPercent,
+    totalTasks, 
+    tasksCompleted,
+    taskProgress: taskProgressPercent,
+    
+    // Add time-based quest info if applicable
+    timeBasedInfo,
+    
+    // Map step data for current attempt
+    steps: currentAttempt && currentAttempt.steps ? currentAttempt.steps.map((step: any) => {
+      // Find matching step in quest definition to get name
+      const stepDef = quest.steps.find((s: any) => s.stepId === step.stepId);
+      
+      return {
+        stepId: step.stepId,
+        completed: step.completed,
+        completedAt: step.completedAt,
+        name: stepDef?.name || '',
+        tasks: step.tasks ? step.tasks.map((task: any) => {
+          // Find matching task in quest definition to get description and metaverse
+          const taskDef = stepDef?.tasks.find((t: any) => t.taskId === task.taskId);
+          
+          return {
+            taskId: task.taskId,
+            count: task.count,
+            completed: task.completed,
+            completedAt: task.completedAt,
+            description: taskDef?.description || '',
+            metaverse: taskDef?.metaverse || 'DECENTRALAND'
+          };
+        }) : []
+      };
+    }) : [],
+    
+    // Add quest template for complete structure
+    template: {
+      title: quest.title,
+      completionMode: quest.completionMode,
+      maxCompletions: quest.maxCompletions,
+      timeWindow: quest.timeWindow,
+      autoReset: quest.autoReset,
+      steps: quest.steps.map((step: any) => ({
+        stepId: step.stepId,
+        name: step.name || '',
+        tasks: step.tasks.map((task: any) => ({
+          taskId: task.taskId,
+          description: task.description || '',
+          requiredCount: task.requiredCount,
+          metaverse: task.metaverse
+        }))
+      }))
+    }
+  };
+  
+  return sanitized;
+}

@@ -2,9 +2,9 @@ import { CompletionMode, INFINITE, QuestDefinition, TaskDefinition, QuestAttempt
 import { Client } from "colyseus";
 import { ephemeralCodes, QuestRoom } from "./QuestRoom";
 import { getCache, updateCache } from "../../utils/cache";
-import { PROFILES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY, REWARDS_CACHE_KEY } from "../../utils/initializer";
+import { PROFILES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY, REWARDS_CACHE_KEY, VERSES_CACHE_KEY } from "../../utils/initializer";
 import { StepDefinition } from "./utils/types";
-import { questRooms } from "../../rooms";
+import { questRooms, webAppRoom } from "./index";
 import { 
   isLegacyQuest, 
   sanitizeUserQuestData, 
@@ -1020,37 +1020,63 @@ export function handleIncrementTaskCount(room: QuestRoom, client: Client, messag
  * Notifies all creator rooms about quest progress events
  * This allows quest creators to get real-time updates when their quests are being interacted with
  */
-function notifyCreatorRooms(room:QuestRoom, messageType: string, data: any) {
-    const { questId } = data;
-    if (!questId) return;
+export function notifyCreatorRooms(room:QuestRoom | null, messageType: string, data: any) {
+    const { questId, userId } = data;
+    // if (!questId) return;
 
-    // Loop through all quest rooms to find creator rooms
-    for (const [roomId, room] of questRooms.entries()) {
-    // Skip if not a creator room
-    if (room.state.questId !== "creator") continue;
+    // // Get creator information for this quest from cache
+    // const creatorQuests = getCache(QUEST_TEMPLATES_CACHE_KEY);
+    // const quest = creatorQuests.find((q: QuestDefinition) => q.questId === questId);
     
-    try {
-        // Get the room's private questDefinition property using reflection
-        // We need to access the questDefinition to check if the room's creator owns this quest
-        const creatorQuests = getCache(QUEST_TEMPLATES_CACHE_KEY);
-        const creatorClients:Client[] = Array.from(room.clients.values());
-        
-        // For each client in the creator room
-        for (const creatorClient of creatorClients) {
-        // Check if this client is the creator of the quest
-        const isCreatorOfQuest = creatorQuests.some((quest: QuestDefinition) => 
-            quest.questId === questId && quest.creator === creatorClient.userData.userId
-        );
-        
-        // Only send the notification to the creator of the quest
-        if (isCreatorOfQuest) {
-            console.log(`Notifying creator ${creatorClient.userData.userId} about ${messageType} for quest ${questId}`);
-            creatorClient.send(messageType, data);
+    // if (!quest || !quest.creator) {
+    //     console.log(`Could not find creator for quest ${questId}`);
+    //     return;
+    // }
+    
+    // const creatorId = quest.creator;
+    
+    // If the WebApp room is available, use it to notify the creator
+    if (webAppRoom && webAppRoom.clients) {
+        try {
+            // Get all WebApp clients
+            const webAppClients: Client[] = Array.from(webAppRoom.clients.values());
+            
+            // Find the creator client
+            const creatorClient = webAppClients.find(client => 
+                client.userData && client.userData.userId === userId
+            );
+            
+            // Send the message to the creator if they're connected
+            if (creatorClient) {
+                console.log(`Notifying creator ${userId} about ${messageType} for quest ${questId} through WebApp room`);
+                creatorClient.send(messageType, data);
+            }
+        } catch (error) {
+            console.error(`Error notifying creator through WebApp room:`, error);
         }
+    } else {
+        console.log(`WebApp room not available for notifying creator ${userId} about ${messageType}`);
+        
+        // Legacy fallback: try to find the creator in quest rooms
+        for (const [roomId, questRoom] of questRooms.entries()) {
+            // Skip if not a creator room
+            if (questRoom.state.questId !== "creator") continue;
+            
+            try {
+                const creatorClients: Client[] = Array.from(questRoom.clients.values());
+                
+                // For each client in the creator room
+                for (const creatorClient of creatorClients) {
+                    // Check if this client is the creator of the quest
+                    if (creatorClient.userData && creatorClient.userData.userId === userId) {
+                        console.log(`Notifying creator ${userId} about ${messageType} for quest ${questId} through quest room`);
+                        creatorClient.send(messageType, data);
+                    }
+                }
+            } catch (error) {
+                console.error(`Error notifying creator room ${roomId}:`, error);
+            }
         }
-    } catch (error) {
-        console.error(`Error notifying creator room ${roomId}:`, error);
-    }
     }
 }
 

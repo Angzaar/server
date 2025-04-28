@@ -6,6 +6,7 @@ import { PROFILES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY } from "../../utils/initi
 import { forceResetQuestData } from "./DataHandlers";
 import { syncQuestToCache } from "./utils/functions";
 import { QuestRoom } from "./QuestRoom";
+import { questRooms } from "./index";
 
 
 /**
@@ -139,8 +140,8 @@ export function handleEditQuest(client: Client, payload: any) {
     }
     
     // Add maxCompletions handling (only for non-FINITE quests)
-    if (typeof maxCompletions === 'number' && quest.completionMode !== 'FINITE') {
-      quest.maxCompletions = maxCompletions;
+    if (quest.completionMode !== 'FINITE') {
+      quest.maxCompletions = typeof maxCompletions === 'number' ? maxCompletions : INFINITE;
     }
     
     // Add timeWindow handling
@@ -170,10 +171,103 @@ export function handleEditQuest(client: Client, payload: any) {
 
     // 3) confirm
     client.send("QUEST_EDITED", quest);
+ 
+    // Update quest in all active quest rooms with matching questId
+    updateQuestRooms(questId, 'DEFINITION', { questDefinition: quest });
+    
     console.log(`[QuestRoom] user="${client.userData.userId}" edited quest="${questId}"`);
 }
 
-export function handleResetQuest(room: QuestRoom, client: Client, message: any) {
+/**
+ * Unified function to update or broadcast to quest rooms with a specific questId
+ * This replaces updateQuestInAllRooms, updateQuestVersionInAllRooms, and broadcastToQuestRooms
+ * with a single flexible implementation
+ * 
+ * @param questId The ID of the quest to update
+ * @param updateType The type of update to perform ('DEFINITION', 'VERSION', 'MESSAGE')
+ * @param data The data to use for the update
+ * @returns The number of rooms that were updated
+ */
+function updateQuestRooms(
+  questId: string, 
+  updateType: 'DEFINITION' | 'VERSION' | 'MESSAGE', 
+  data: {
+    questDefinition?: QuestDefinition,
+    messageType?: string,
+    messageData?: any,
+    newVersion?: number,
+    timestamp?: string,
+    reason?: string
+  }
+) {
+  let updatedRoomsCount = 0;
+
+  for (const [roomId, room] of questRooms.entries()) {
+    // Skip rooms that don't have this quest loaded
+    if (!room.questDefinition || room.questDefinition.questId !== questId) {
+      continue;
+    }
+
+    // Handle different update types
+    switch (updateType) {
+      case 'DEFINITION':
+        // Update quest definition (for edit operations)
+        if (data.questDefinition) {
+          // Only update if versions differ
+          // if (room.questDefinition.version !== data.questDefinition.version) {
+            console.log(`[QuestRoom] Updating quest definition in room ${roomId} for quest ${questId}`);
+            
+            // Keep the same version to avoid disrupting current players
+            const currentVersion = room.questDefinition.version;
+            
+            // Update the room's quest definition
+            room.questDefinition = {...data.questDefinition, version: currentVersion};
+            
+            // Broadcast update to all clients in the room
+            room.broadcast("QUEST_UPDATED", data.questDefinition);
+          // }
+        }
+        break;
+        
+      case 'VERSION':
+        // Broadcast version change (for reset/version increment operations)
+        if (data.newVersion && data.timestamp) {
+          console.log(`[QuestRoom] Updating quest version in room ${roomId} for quest ${questId} to version ${data.newVersion}`);
+          
+          // Broadcast version change to all clients in the room
+          room.broadcast("QUEST_VERSION_INCREMENTED", {
+            questId,
+            newVersion: data.newVersion,
+            reason: data.reason || "Version updated",
+            timestamp: data.timestamp
+          });
+        }
+        break;
+        
+      case 'MESSAGE':
+        // Send a generic message to the room
+        if (data.messageType && data.messageData) {
+          console.log(`[QuestRoom] Broadcasting ${data.messageType} to room ${roomId} for quest ${questId}`);
+          
+          // Broadcast to all clients in the room
+          room.broadcast(data.messageType, data.messageData);
+        }
+        break;
+    }
+    
+    updatedRoomsCount++;
+  }
+  
+  if (updatedRoomsCount > 0) {
+    const actionText = updateType === 'DEFINITION' ? 'Updated quest definition in' : 
+                      (updateType === 'VERSION' ? 'Updated quest version in' : 'Broadcast to');
+    console.log(`[QuestRoom] ${actionText} ${updatedRoomsCount} active rooms for quest ${questId}`);
+  }
+  
+  return updatedRoomsCount;
+}
+
+export function handleResetQuest(room: QuestRoom | null, client: Client, message: any) {
   // Make sure the user is the creator of the quest
   if (!client.userData || !client.userData.userId) {
     client.send("QUEST_ERROR", { message: "Not authenticated" });
@@ -199,21 +293,23 @@ export function handleResetQuest(room: QuestRoom, client: Client, message: any) 
   
   try {
     // Increment the quest version
-    const currentVersion = quests[questIndex].version;
+    const quest = quests[questIndex];
+    const currentVersion = quest.version || 1;
     const newVersion = currentVersion + 1;
     
+    console.log(`[QuestRoom] Quest "${questId}" resetting from version ${currentVersion} to ${newVersion}`);
+    
     // Create version history entry
-    const versionReason = "Manual reset by creator";
     const historyEntry = {
       version: newVersion,
       createdAt: new Date().toISOString(),
-      reason: versionReason
+      reason: message.reason || "Manual reset by creator"
     };
     
     // Initialize or update version history
-    if (!quests[questIndex].versionHistory) {
+    if (!quest.versionHistory) {
       // If no history exists yet, create it with both versions
-      quests[questIndex].versionHistory = [
+      quest.versionHistory = [
         {
           version: currentVersion,
           createdAt: new Date(Date.now() - 86400000).toISOString(), // Default to yesterday for initial version
@@ -223,60 +319,57 @@ export function handleResetQuest(room: QuestRoom, client: Client, message: any) 
       ];
     } else {
       // Add the new version to existing history
-      quests[questIndex].versionHistory.push(historyEntry);
+      quest.versionHistory.push(historyEntry);
     }
     
-    // Update version
-    quests[questIndex].version = newVersion;
+    // Update quest version
+    quest.version = newVersion;
     
-    // Update cache
-    updateCache(QUEST_TEMPLATES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY, quests);
+    // Force reset quest data
+    forceResetQuestData(questId, currentVersion, newVersion);
     
-    // If this quest is loaded in a room, update it there too
-    if (room.questDefinition && room.questDefinition.questId === questId) {
-      room.questDefinition.version = newVersion;
+    // Save the updated quest to cache and file
+    syncQuestToCache(questId, quest);
+    
+    // If we have a room reference, update its quest definition
+    if (room && room.questDefinition && room.questDefinition.questId === questId) {
+      room.questDefinition = quest;
       
-      // Update version history in room's quest definition
-      if (!room.questDefinition.versionHistory) {
-        room.questDefinition.versionHistory = [...quests[questIndex].versionHistory];
-      } else {
-        room.questDefinition.versionHistory.push(historyEntry);
-      }
+      // Broadcast to all clients
+      room.broadcast("QUEST_VERSION_INCREMENTED", {
+        questId,
+        newVersion,
+        reason: message.reason || "Manual reset by creator",
+        timestamp: historyEntry.createdAt
+      });
     }
     
-    // Reset user progress
-    forceResetQuestData(room, questId);
-    
-    // Send confirmation to the client
-    client.send("QUEST_RESET_SUCCESS", { 
-      questId, 
+    // Update version in all quest rooms
+    updateQuestRooms(questId, 'VERSION', {
       newVersion,
-      versionHistory: quests[questIndex].versionHistory, 
-      message: "Quest has been reset and version incremented" 
+      timestamp: historyEntry.createdAt,
+      reason: message.reason || "Manual reset by creator"
     });
     
-    // Broadcast version change to all clients
-    room.broadcast("QUEST_VERSION_INCREMENTED", {
-      questId: questId,
-      newVersion: newVersion,
-      reason: versionReason,
-      timestamp: historyEntry.createdAt
+    // Send success response to client
+    client.send("QUEST_RESET_SUCCESS", {
+      questId,
+      newVersion,
+      quest
     });
     
-    return true;
   } catch (error) {
     console.error("Error resetting quest:", error);
     client.send("QUEST_ERROR", { message: "Failed to reset quest" });
-    return false;
   }
 }
- 
-export function handleEndQuest(room:QuestRoom, client: Client, payload: any) {
+
+export function handleEndQuest(room: QuestRoom | null, client: Client, payload: any) {
     console.log('handling quest end', payload)
 
     const { questId, taskId, enabled } = payload;
 
-    if(room.state.questId === "creator"){
+    if(room?.state.questId === "creator"){
     const quests = getCache(QUEST_TEMPLATES_CACHE_KEY)
     let quest:QuestDefinition = quests.find((q:QuestDefinition)=> q.questId === questId)
     if(!quest){
@@ -293,25 +386,37 @@ export function handleEndQuest(room:QuestRoom, client: Client, payload: any) {
     forceEndQuestForAll(room, questId, quest.version);
     }else{
 
+    if (!room || !room.questDefinition) {
+        console.log("Creator trying to cancel a quest with no definition")
+        return
+    }
+
     if (client.userData.userId !== room.questDefinition.creator) {
         client.send("QUEST_ERROR", { message: "Only the quest creator can end this quest." });
         return;
     }
 
-    if(!room.questDefinition){
-        console.log("Creator trying to cancel a quest with no definition")
-        return
-    }
     room.questDefinition.enabled = enabled
     syncQuestToCache(questId, room.questDefinition)
     forceEndQuestForAll(room, questId, room.questDefinition.version);
     }
 
     client.send("QUEST_ENDED", { questId });
+
+    // Broadcast to all quest rooms with this questId
+    updateQuestRooms(questId, 'MESSAGE', {
+      messageType: "QUEST_ENDED",
+      messageData: {
+        questId,
+        status: "ended",
+        endedAt: new Date().toISOString()
+      }
+    });
+
     return;
 }
 
-export function handleDeleteQuest(room:QuestRoom, client: Client, payload: any) {
+export function handleDeleteQuest(room: QuestRoom | null, client: Client, payload: any) {
     console.log("Handling quest delete:", payload);
     const { questId } = payload;
 
@@ -336,6 +441,16 @@ export function handleDeleteQuest(room:QuestRoom, client: Client, payload: any) 
     syncQuestToCache(questId, quest);
 
     client.send("QUEST_DELETE", { questId });
+
+    // Broadcast to all quest rooms with this questId
+    updateQuestRooms(questId, 'MESSAGE', {
+      messageType: "QUEST_DELETED",
+      messageData: {
+        questId,
+        deletedAt: new Date().toISOString()
+      }
+    });
+
     return;
 }
 

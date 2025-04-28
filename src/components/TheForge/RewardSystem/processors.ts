@@ -1,10 +1,11 @@
 import { RewardEntry } from "./types";
 import { checkDecentralandWeb3Wallet } from "./index";
 import { TokenManager } from "../../TokenManager";
-import { QuestRoom } from "../QuestRoom";
-import { questRooms } from "../../../rooms";
 import { getCache, updateCache } from "../../../utils/cache";
 import { PROFILES_CACHE_KEY, PROFILES_FILE } from "../../../utils/initializer";
+import { Client } from "colyseus";
+import { notifyCreatorRooms } from "../Handlers";
+import { questRooms } from "..";
 
 // Get or initialize the TokenManager instance
 const tokenManager = new TokenManager();
@@ -248,7 +249,9 @@ export async function distributeDecentralandReward(reward: RewardEntry): Promise
 /**
  * Distribute a creator token reward
  */
-export async function distributeCreatorToken(reward: RewardEntry, room: QuestRoom): Promise<boolean> {
+export const distributeCreatorToken = (
+  reward: RewardEntry
+): boolean => {
   console.log('distributeCreatorToken', reward)
   if (!reward.userId || !reward.rewardData.id) {
     console.error(`[RewardSystem] Missing required data for CREATOR_TOKEN reward`);
@@ -356,33 +359,52 @@ export async function distributeCreatorToken(reward: RewardEntry, room: QuestRoo
     // Notify all quest rooms about the token distribution
     // Find all creator rooms and notify the token creator
     for (const [roomId, questRoom] of questRooms.entries()) {
-      // Skip if not a creator room
-      if (questRoom.state.questId !== "creator") continue;
-      
       try {
         // Find all clients that should be notified
-        const creatorClients = Array.from(questRoom.clients.values());
+        const clients:Client[] = Array.from(questRoom.clients.values());
         
-        // For each client in the creator room
-        for (const creatorClient of creatorClients) {
-          // Only send to the creator of the token
-          if (creatorClient.userData.userId === token.creator) {
-            console.log(`Notifying token creator ${token.creator} about token distribution`);
-            creatorClient.send("TOKEN_DISTRIBUTED", {
-              tokenId,
-              token: updatedToken,
-              amount,
-              userId: reward.userId,
-              rewardId: reward.rewardData.id,
-              rewardName: reward.rewardData.name,
-              timestamp: Date.now()
+        // For each client in any room
+        for (const client of clients) {
+          
+          // Notify the user who received the token with an inventory update
+          if (client.userData.userId === reward.userId) {
+            console.log(`Notifying user ${reward.userId} about updated inventory`);
+            
+            // Send the enriched token data
+            const enrichedTokens = userProfile.tokens.map((token: any) => {
+              if (token.id === tokenId) {
+                const fullTokenData = tokenManager.getTokenById(token.id);
+                if (fullTokenData) {
+                  return {
+                    ...token,
+                    token: {
+                      ...fullTokenData,
+                      kind: 'CREATOR_TOKEN'
+                    }
+                  };
+                }
+              }
+              return token;
+            });
+            
+            // Send inventory update to the user
+            client.send("INVENTORY_UPDATE", { 
+              inventory: enrichedTokens 
+            });
+
+              // Check for webapp room and notify
+            notifyCreatorRooms(null, "INVENTORY_UPDATE", {
+              success: true, 
+              tokens: enrichedTokens,
+              userId: reward.userId
             });
           }
         }
       } catch (error) {
-        console.error(`Error notifying creator room ${roomId}:`, error);
+        console.error(`Error notifying clients in room ${roomId}:`, error);
       }
     }
+
     
     console.log(`[RewardSystem] Successfully distributed ${amount} creator tokens (${tokenId}) to ${reward.userId}`);
     return true;

@@ -38,7 +38,7 @@ export interface RewardEntry {
  */
 export type RewardHandlers = {
   [key in RewardKind]: key extends 'CREATOR_TOKEN' 
-    ? (reward: RewardEntry, room: QuestRoom) => Promise<boolean>
+    ? (reward: RewardEntry) => Promise<boolean>
     : (reward: RewardEntry) => Promise<boolean>;
 };
 

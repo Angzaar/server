@@ -13,7 +13,7 @@ import {
   distributeDecentralandReward,
   distributeCreatorToken
 } from "./processors";
-import { questRooms } from "../../../rooms";
+import { questRooms } from "../index";
 
 // In-memory queue for rewards (in production, consider using Redis or similar)
 let rewardQueue: RewardEntry[] = [];
@@ -24,7 +24,7 @@ const MAX_RETRY_ATTEMPTS = 3;
 let failedRewards: RewardEntry[] = [];
 
 // Map the reward handlers to their respective functions
-export const rewardHandlers: Partial<RewardHandlers> = {
+export const rewardHandlers: Partial<any> = {
   'WEB2_ITEM': distributeWeb2Reward,
   'ERC20': distributeERC20Reward,
   'ERC721': distributeERC721Reward,
@@ -276,7 +276,7 @@ async function distributeReward(reward: RewardEntry): Promise<boolean> {
           return false;
         }
         
-        success = await distributeCreatorToken(reward, questRoom);
+        success = await distributeCreatorToken(reward);
         break;
         
       default:

@@ -13,6 +13,7 @@ import { BlitzRoom } from "./rooms/BlitzRoom";
 import { TronRoom } from "./components/arcade/TronState";
 import { FlightRoom } from "./rooms/FlightRoom";
 import { QuestRoom } from "./components/TheForge/QuestRoom";
+import { WebAppRoom } from "./components/WebApp/WebAppRoom";
 import { migrateQuests } from "./components/TheForge/utils/functions";
 export default config({
     initializeGameServer: async (gameServer) => {
@@ -38,6 +39,9 @@ export default config({
         gameServer.define('angzaar_flight', FlightRoom)
         gameServer.define('angzaar_questing', QuestRoom)
         .filterBy(["questId", "userId"])
+        
+        // Define the WebApp room for global web app functionality
+        gameServer.define('angzaar_webapp', WebAppRoom);
     },
 
     initializeTransport: function(opts) {

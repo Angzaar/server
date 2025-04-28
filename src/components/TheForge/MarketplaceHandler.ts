@@ -9,8 +9,11 @@ const tokenManager = new TokenManager();
 /**
  * Handle marketplace purchase requests
  * This function processes token payments for marketplace items
+ * @param client The client making the purchase
+ * @param message The purchase message data
+ * @param broadcastRoom Optional room to broadcast inventory changes to
  */
-export function handleMarketplacePurchase(client: Client, message: any) {
+export function handleMarketplacePurchase(client: Client, message: any, broadcastRoom?: any) {
   console.log("handleMarketplacePurchase", message);
   
   try {
@@ -219,6 +222,11 @@ export function handleMarketplacePurchase(client: Client, message: any) {
       // If quantity reaches 0, mark as not listed
       if (reward.listing.quantity === 0) {
         reward.listing.listed = false;
+      }
+      
+      // Broadcast inventory change if broadcast room is provided
+      if (broadcastRoom && typeof broadcastRoom.broadcastInventoryChange === 'function') {
+        broadcastRoom.broadcastInventoryChange(reward.id, reward.listing.quantity);
       }
     }
     
