@@ -94,9 +94,9 @@ export class TokenManager {
       symbol: tokenData.symbol || '',
       description: tokenData.description || '',
       media: tokenData.media || { image: '' },
-      totalSupply: tokenData.totalSupply || '1000000', // Default to 1,000,000
-      circulatingSupply: '0', // Starts at zero
-      initialPrice: tokenData.initialPrice || '0.01', // Default to $0.01 per token
+      totalSupply: tokenData.totalSupply || 1000000, // Default to 1,000,000 as number
+      circulatingSupply: 0, // Starts at zero as number
+      initialPrice: tokenData.initialPrice || 0.01, // Default to $0.01 per token as number
       usableAsPayment: true, // Always true for now
       usableAsReward: true, // Always true for now
       createdAt: now,
@@ -115,12 +115,13 @@ export class TokenManager {
   /**
    * Update token circulating supply
    */
-  public updateTokenSupply(tokenId: string, circulatingSupply: string): boolean {
+  public updateTokenSupply(tokenId: string, circulatingSupply: string | number): boolean {
     const tokens = this.getAllTokens();
     const tokenIndex = tokens.findIndex(token => token.id === tokenId);
     
     if (tokenIndex === -1) return false;
     
+    // Store directly as provided type (string or number)
     tokens[tokenIndex].circulatingSupply = circulatingSupply;
     tokens[tokenIndex].updatedAt = new Date().toISOString();
     

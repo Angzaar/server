@@ -81,7 +81,8 @@ export async function distributeWeb2Reward(reward: RewardEntry): Promise<boolean
               console.log(`Notifying user ${reward.userId} about updated artifacts`);
               
               client.send("INVENTORY_UPDATE", { 
-                artifacts: userProfile.artifacts 
+                artifacts: userProfile.artifacts,
+                userId: reward.userId 
               });
               
               notifyCreatorRooms(null, "INVENTORY_UPDATE", {
@@ -167,7 +168,8 @@ export async function distributeERC20Reward(reward: RewardEntry): Promise<boolea
               console.log(`Notifying user ${reward.userId} about updated artifacts`);
               
               client.send("INVENTORY_UPDATE", { 
-                artifacts: userProfile.artifacts 
+                artifacts: userProfile.artifacts,
+                userId: reward.userId 
               });
               
               notifyCreatorRooms(null, "INVENTORY_UPDATE", {
@@ -257,7 +259,8 @@ export async function distributeERC721Reward(reward: RewardEntry): Promise<boole
               console.log(`Notifying user ${reward.userId} about updated artifacts`);
               
               client.send("INVENTORY_UPDATE", { 
-                artifacts: userProfile.artifacts 
+                artifacts: userProfile.artifacts,
+                userId: reward.userId 
               });
               
               notifyCreatorRooms(null, "INVENTORY_UPDATE", {
@@ -344,7 +347,8 @@ export async function distributeERC1155Reward(reward: RewardEntry): Promise<bool
               console.log(`Notifying user ${reward.userId} about updated artifacts`);
               
               client.send("INVENTORY_UPDATE", { 
-                artifacts: userProfile.artifacts 
+                artifacts: userProfile.artifacts,
+                userId: reward.userId 
               });
               
               notifyCreatorRooms(null, "INVENTORY_UPDATE", {
@@ -426,7 +430,8 @@ export async function distributePhysicalReward(reward: RewardEntry): Promise<boo
               console.log(`Notifying user ${reward.userId} about updated artifacts`);
               
               client.send("INVENTORY_UPDATE", { 
-                artifacts: userProfile.artifacts 
+                artifacts: userProfile.artifacts,
+                userId: reward.userId 
               });
               
               notifyCreatorRooms(null, "INVENTORY_UPDATE", {
@@ -516,7 +521,8 @@ export async function distributeDecentralandItemReward(reward: RewardEntry): Pro
               console.log(`Notifying user ${reward.userId} about updated artifacts`);
               
               client.send("INVENTORY_UPDATE", { 
-                artifacts: userProfile.artifacts 
+                artifacts: userProfile.artifacts,
+                userId: reward.userId 
               });
               
               notifyCreatorRooms(null, "INVENTORY_UPDATE", {
@@ -623,7 +629,8 @@ export async function distributeDecentralandReward(reward: RewardEntry): Promise
                 console.log(`Notifying user ${reward.userId} about updated artifacts`);
                 
                 client.send("INVENTORY_UPDATE", { 
-                  artifacts: userProfile.artifacts 
+                  artifacts: userProfile.artifacts,
+                  userId: reward.userId 
                 });
                 
                 notifyCreatorRooms(null, "INVENTORY_UPDATE", {
@@ -670,16 +677,22 @@ export const distributeCreatorToken = (
     const tokenId = reward.rewardData.creatorToken?.tokenId; // Using the reward ID as token ID
     
     // Try to find amount in different possible locations, default to 10 if not found
-    let amount = "10"; // Default amount
+    let amount = 10; // Default amount as number
     
     // Use type assertion to access potential fields
     const rewardDataAny = reward.rewardData as any;
     if (rewardDataAny.quantity) {
-      amount = rewardDataAny.quantity.toString();
+      amount = Number(rewardDataAny.quantity);
     } else if (reward.rewardData.erc20?.amount) {
-      amount = reward.rewardData.erc20.amount;
+      amount = Number(reward.rewardData.erc20.amount);
     } else if (reward.rewardData.erc1155?.amount) {
-      amount = reward.rewardData.erc1155.amount;
+      amount = Number(reward.rewardData.erc1155.amount);
+    }
+    
+    // Ensure amount is a valid number
+    if (isNaN(amount)) {
+      console.error(`[RewardSystem] Invalid amount: ${amount}`);
+      return false;
     }
     
     console.log(`[RewardSystem] Distributing creator token: ${reward.rewardData.name} (tokenId: ${tokenId}, amount: ${amount}) to ${reward.userId}`);
@@ -701,7 +714,7 @@ export const distributeCreatorToken = (
     }
     
     // Update the token balance
-    const amountNumber = parseFloat(amount);
+    const amountNumber = parseFloat(amount.toString());
     if (isNaN(amountNumber)) {
       console.error(`[RewardSystem] Invalid amount: ${amount}`);
       return false;
@@ -721,18 +734,20 @@ export const distributeCreatorToken = (
     const existingTokenIndex = userProfile.tokens.findIndex((t: any) => t.id === tokenId);
     
     // Calculate the new balance
-    let newBalance: string;
+    let newBalance: number;
     if (existingTokenIndex >= 0) {
       // Get existing balance from tokens array
-      const existingBalance = parseFloat(userProfile.tokens[existingTokenIndex].balance) || 0;
-      newBalance = (existingBalance + amountNumber).toString();
+      const existingBalance = typeof userProfile.tokens[existingTokenIndex].balance === 'number' 
+        ? userProfile.tokens[existingTokenIndex].balance 
+        : Number(userProfile.tokens[existingTokenIndex].balance) || 0;
+      newBalance = existingBalance + amountNumber;
     } else {
-      newBalance = amount;
+      newBalance = amountNumber;
     }
     
     const tokenMetadata = {
       id: tokenId,
-      balance: newBalance,
+      balance: newBalance, // Use number directly
       name: token.name,
       symbol: token.symbol,
     };
@@ -745,30 +760,17 @@ export const distributeCreatorToken = (
       userProfile.tokens.push(tokenMetadata);
     }
 
-    // Also add to artifacts array with more complete information
-    const artifactMetadata = {
-      id: tokenId,
-      quantity: amountNumber,
-      name: token.name,
-      type: 'CREATOR_TOKEN',
-      description: token.description,
-      image: token.media?.image || '',
-      acquiredAt: new Date().toISOString(),
-      sourceType: reward.sourceType === 'quest' && reward.questId === 'marketplace' ? 'marketplace' : reward.sourceType,
-      sourceId: reward.questId || reward.rewardData.id,
-    };
-
-    // Add to artifacts array
-    userProfile.artifacts.push(artifactMetadata);
-    
+    // Remove adding tokens to artifacts array - tokens should only be in tokens array, not in artifacts
     // Save the updated profile
     updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
-    console.log(`[RewardSystem] Updated token balance and artifacts for user ${reward.userId}: ${tokenId} = ${newBalance}`);
+    console.log(`[RewardSystem] Updated token balance for user ${reward.userId}: ${tokenId} = ${newBalance}`);
     
     // Calculate new circulating supply
-    const currentSupply = parseFloat(token.circulatingSupply) || 0;
-    const amountToAdd = amountNumber;
-    const newSupply = (currentSupply + amountToAdd).toString();
+    const currentSupply = typeof token.circulatingSupply === 'number'
+      ? token.circulatingSupply
+      : Number(token.circulatingSupply) || 0;
+    const amountToAdd = amount;
+    const newSupply = currentSupply + amountToAdd; // Store as number
     
     // Update the token's circulating supply
     const updated = tokenManager.updateTokenSupply(tokenId, newSupply);
@@ -817,15 +819,14 @@ export const distributeCreatorToken = (
             
             // Send inventory update to the user
             client.send("INVENTORY_UPDATE", { 
-              inventory: enrichedTokens,
-              artifacts: userProfile.artifacts
+              tokens: enrichedTokens,
+              userId: reward.userId
             });
 
-              // Check for webapp room and notify
+            // Check for webapp room and notify
             notifyCreatorRooms(null, "INVENTORY_UPDATE", {
               success: true, 
               tokens: enrichedTokens,
-              artifacts: userProfile.artifacts,
               userId: reward.userId
             });
           }

@@ -302,11 +302,11 @@ export interface CreatorToken {
   media?: { image: string };      // token logo/image
   
   /* supply info */
-  totalSupply: string;            // total supply (string to avoid precision issues)
-  circulatingSupply: string;      // amount in circulation
+  totalSupply: string | number;            // total supply (string or number)
+  circulatingSupply: string | number;      // amount in circulation (string or number)
   
   /* token economics */
-  initialPrice?: string;          // initial price in USD
+  initialPrice?: string | number;          // initial price in USD (string or number)
   
   /* permissions */
   usableAsPayment: boolean;       // whether token can be used as payment

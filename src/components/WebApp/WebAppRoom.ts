@@ -198,6 +198,8 @@ export class WebAppRoom extends Room<WebAppState> {
     if (profile) {
       // Get tokens and token balances from the profile
       const tokens = profile.tokens || [];
+      // Get artifacts from the profile
+      const artifacts = profile.artifacts || [];
       
       // Enrich token data if needed
       const enrichedTokens = tokens.map((token: any) => {
@@ -218,7 +220,9 @@ export class WebAppRoom extends Room<WebAppState> {
       
       // Send inventory update
       client.send("INVENTORY_UPDATE", { 
-        inventory: enrichedTokens 
+        tokens: enrichedTokens,
+        artifacts: artifacts,
+        userId: client.userData.userId
       });
     }
   }

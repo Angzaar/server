@@ -182,6 +182,8 @@ export function handleInventoryRequest(client: Client, message: any) {
 
     // Get token balances from profile
     const tokens = userProfile.tokens || [];
+    // Get artifacts from profile
+    const artifacts = userProfile.artifacts || [];
 
     // Enrich token data with full token details
     const enrichedTokens = [];
@@ -197,34 +199,13 @@ export function handleInventoryRequest(client: Client, message: any) {
           kind: 'CREATOR_TOKEN' // Ensure kind is set
         }
       });
-
-      // For CREATOR_TOKENs, get the latest data from the TokenManager
-      // For other item types, use the data already in the profile
-      // if (token.kind === 'CREATOR_TOKEN') {
-      //   const fullTokenData = tokenManager.getTokenById(token.id);
-      //   if (fullTokenData) {
-      //     // If we found the token in TokenManager, use that data
-      //     enrichedTokens.push({
-      //       ...userToken,
-      //       token: {
-      //         ...fullTokenData,
-      //         kind: 'CREATOR_TOKEN' // Ensure kind is set
-      //       }
-      //     });
-      //   } else {
-      //     // If token not found in TokenManager but exists in profile, keep original data
-      //     enrichedTokens.push(token);
-      //   }
-      // } else {
-      //   // For non-CREATOR_TOKEN items, use the data already in the profile
-      //   enrichedTokens.push(token);
-      // }
     }
 
     // Send inventory to client
     client.send("INVENTORY_UPDATE", { 
       success: true, 
       tokens: enrichedTokens,
+      artifacts: artifacts,
       userId: targetUserId
     });
   } catch (error: any) {

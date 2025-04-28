@@ -1,6 +1,6 @@
 import { Client } from "colyseus";
 import { getCache, updateCache } from "../../utils/cache";
-import { PROFILES_CACHE_KEY, PROFILES_FILE, REWARDS_CACHE_KEY } from "../../utils/initializer";
+import { PROFILES_CACHE_KEY, PROFILES_FILE, REWARDS_CACHE_KEY, REWARDS_FILE } from "../../utils/initializer";
 import { TokenManager } from "../TokenManager";
 import { generateId } from "colyseus";
 import { processMarketplacePurchase } from "./RewardSystem/processors";
@@ -119,6 +119,8 @@ export async function handleMarketplacePurchase(client: Client, message: any, br
       if (!userProfile.tokens) {
         userProfile.tokens = [];
       }
+
+      
       
       // Find the token in the user's tokens array
       const userTokenIndex = userProfile.tokens.findIndex((t: any) => 
@@ -136,9 +138,18 @@ export async function handleMarketplacePurchase(client: Client, message: any, br
       }
       
       const userToken = userProfile.tokens[userTokenIndex];
-      const userBalance = userToken.balance ? Number(userToken.balance) : 0;
+      // Get the balance correctly regardless of token structure
+      const userBalance = typeof userToken.balance === 'number'
+        ? userToken.balance
+        : (userToken.balance 
+          ? Number(userToken.balance) 
+          : (userToken.token && userToken.token.balance 
+            ? Number(userToken.token.balance) 
+            : 0));
       
-      if (userBalance < Number(amount)) {
+      const paymentAmount = Number(amount);
+      
+      if (userBalance < paymentAmount) {
         console.error("Insufficient token balance", message);
         client.send("MARKETPLACE_PURCHASE_RESPONSE", { 
           success: false, 
@@ -147,9 +158,29 @@ export async function handleMarketplacePurchase(client: Client, message: any, br
         return;
       }
       
-      // Deduct tokens from user balance
-      userProfile.tokens[userTokenIndex].balance = String(userBalance - Number(amount));
+      // Deduct tokens from user balance - handle both token formats
+      console.log("Before token deduction:", {
+        tokenId,
+        userTokenIndex,
+        userToken,
+        userBalance,
+        amount: paymentAmount,
+        hasDirectBalance: userToken.balance !== undefined,
+        hasNestedBalance: userToken.token && userToken.token.balance !== undefined
+      });
+      
+      if (userToken.balance !== undefined) {
+        userProfile.tokens[userTokenIndex].balance = userBalance - paymentAmount; // Store as number
+        console.log("Updated direct balance:", userProfile.tokens[userTokenIndex].balance);
+      } else if (userToken.token && userToken.token.balance !== undefined) {
+        userProfile.tokens[userTokenIndex].token.balance = userBalance - paymentAmount; // Store as number
+        console.log("Updated nested balance:", userProfile.tokens[userTokenIndex].token.balance);
+      }
       userProfile.tokens[userTokenIndex].lastUpdate = new Date().toISOString();
+      
+      // Save the profile changes for token payments - Moved earlier to ensure it happens
+      updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
+      console.log("After token deduction, updated profile in cache");
       
       // Get token details for notification
       const token = tokenManager.getTokenById(tokenId);
@@ -169,14 +200,28 @@ export async function handleMarketplacePurchase(client: Client, message: any, br
         
         if (creatorTokenIndex !== -1) {
           // Update existing token balance
-          const currentBalance = Number(creatorProfile.tokens[creatorTokenIndex].balance || 0);
-          creatorProfile.tokens[creatorTokenIndex].balance = String(currentBalance + Number(amount));
+          const creatorToken = creatorProfile.tokens[creatorTokenIndex];
+          // Get the balance correctly regardless of token structure
+          const currentBalance = typeof creatorToken.balance === 'number'
+            ? creatorToken.balance
+            : (creatorToken.balance !== undefined
+              ? Number(creatorToken.balance)
+              : (creatorToken.token && creatorToken.token.balance !== undefined
+                ? Number(creatorToken.token.balance)
+                : 0));
+              
+          // Update balance based on token structure
+          if (creatorToken.balance !== undefined) {
+            creatorProfile.tokens[creatorTokenIndex].balance = currentBalance + paymentAmount; // Store as number
+          } else if (creatorToken.token && creatorToken.token.balance !== undefined) {
+            creatorProfile.tokens[creatorTokenIndex].token.balance = currentBalance + paymentAmount; // Store as number
+          }
           creatorProfile.tokens[creatorTokenIndex].lastUpdate = new Date().toISOString();
         } else if (token) {
           // Add token to creator's inventory
           creatorProfile.tokens.push({
             id: tokenId,
-            balance: String(amount),
+            balance: paymentAmount, // Store as number
             lastUpdate: new Date().toISOString(),
             token: {
               id: tokenId,
@@ -189,9 +234,6 @@ export async function handleMarketplacePurchase(client: Client, message: any, br
           });
         }
       }
-      
-      // Save the profile changes for token payments
-      updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
     }
     
     // Use the reward system to handle the distribution
@@ -225,6 +267,16 @@ export async function handleMarketplacePurchase(client: Client, message: any, br
       // If quantity reaches 0, mark as not listed
       if (reward.listing.quantity === 0) {
         reward.listing.listed = false;
+      }
+      
+      // Make sure we update the rewards cache with the updated quantity
+      const rewards = getCache(REWARDS_CACHE_KEY);
+      const rewardIndex = rewards.findIndex((r: any) => r.id === reward.id);
+      if (rewardIndex !== -1) {
+        rewards[rewardIndex] = reward;
+        // Update the rewards in cache
+        updateCache(REWARDS_FILE, REWARDS_CACHE_KEY, rewards);
+        console.log(`Updated reward in cache: ${reward.id}, new quantity: ${reward.listing.quantity}`);
       }
       
       // Broadcast inventory change if broadcast room is provided
