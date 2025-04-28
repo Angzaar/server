@@ -34,7 +34,7 @@ export function handleQuestOutline(room:QuestRoom, client:Client, payload:any){
         expires: Date.now() + 60 * 1000 // 60 seconds from now
     };
 
-    client.send("QUEST_OUTLINE", {questId:questId, code:code})
+    client.send("QUEST_OUTLINE", quest)
     } else {
         // If not in creator room, this is a player request
         if (!room.questDefinition) {
@@ -75,6 +75,7 @@ export function handleQuestOutline(room:QuestRoom, client:Client, payload:any){
             startTime: room.questDefinition.startTime,
             endTime: room.questDefinition.endTime,
             version: room.questDefinition.version,
+            versionHistory: room.questDefinition.versionHistory || [],
             steps: room.questDefinition.steps.map((step: StepDefinition) => ({
                 stepId: step.stepId,
                 name: step.name,
@@ -175,6 +176,7 @@ export function handleQuestStats(room:QuestRoom, client: Client, payload: any) {
           totalSteps,
           // Include attempts array for new attempt-based tracking
           attempts: attempts.map((attempt: any) => ({
+            questVersion: attempt.questVersion,
             attemptId: attempt.attemptId,
             attemptNumber: attempt.attemptNumber,
             startTime: attempt.startTime,
@@ -255,6 +257,7 @@ export function handleQuestStats(room:QuestRoom, client: Client, payload: any) {
         startTime: quest.startTime,
         endTime: quest.endTime,
         version: quest.version,
+        versionHistory: quest.versionHistory || [],
         steps: quest.steps.map((step: StepDefinition) => ({
         name: step.name,
         stepId:step.stepId,
@@ -421,9 +424,12 @@ export function handleQuestStats(room:QuestRoom, client: Client, payload: any) {
         startTime: room.questDefinition.startTime,
         endTime: room.questDefinition.endTime,
         version: room.questDefinition.version,
+        versionHistory: room.questDefinition.versionHistory || [],
         steps: room.questDefinition.steps.map((step: StepDefinition) => ({
         name: step.name,
+        stepId: step.stepId,
         tasks: step.tasks.map((task: TaskDefinition) => ({
+            taskId: task.taskId,
             description: task.description,
             requiredCount: task.requiredCount,
             metaverse: task.metaverse

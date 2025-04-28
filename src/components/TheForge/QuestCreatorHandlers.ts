@@ -1,7 +1,7 @@
 import { Client } from "colyseus";
-import { getCache } from "../../utils/cache";
+import { getCache, updateCache } from "../../utils/cache";
 import { getRandomString } from "../../utils/questing";
-import { CompletionMode, INFINITE, QuestDefinition } from "./utils/types";
+import { CompletionMode, INFINITE, QuestDefinition, LegacyQuestDefinition } from "./utils/types";
 import { PROFILES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY } from "../../utils/initializer";
 import { forceResetQuestData } from "./DataHandlers";
 import { syncQuestToCache } from "./utils/functions";
@@ -173,39 +173,102 @@ export function handleEditQuest(client: Client, payload: any) {
     console.log(`[QuestRoom] user="${client.userData.userId}" edited quest="${questId}"`);
 }
 
-export async function handleResetQuest(room:QuestRoom, client: Client, payload: any) {
-    if (!room.questDefinition) return;
-
-    const { questId, enabled, userId = null } = payload;
-
-    if (client.userData.userId !== room.questDefinition.creator) {
-        client.send("QUEST_ERROR", { message: "Only the quest creator can reset this quest." });
-        return;
-    }
-
-    room.questDefinition.enabled = enabled
-    syncQuestToCache(questId, room.questDefinition)
-
-    await forceEndQuestForAll(room, questId, room.questDefinition.version)
-    
-    // If userId is specified and not "all", reset only for that user
-    if (userId && userId !== "all") {
-        forceResetQuestData(room, questId, false, userId);
-        client.send("QUEST_RESET", { 
-            questId, 
-            userId,
-            message: `Quest reset for user ${userId}`
-        });
-    } else {
-        // Reset for all users
-        forceResetQuestData(room, questId, true);
-        client.send("QUEST_RESET", { 
-            questId, 
-            message: "Quest reset for all users"
-        });
-    }
-    
+export function handleResetQuest(room: QuestRoom, client: Client, message: any) {
+  // Make sure the user is the creator of the quest
+  if (!client.userData || !client.userData.userId) {
+    client.send("QUEST_ERROR", { message: "Not authenticated" });
     return;
+  }
+
+  const { questId } = message;
+  
+  // Get the quest templates
+  const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
+  const questIndex = quests.findIndex((q: QuestDefinition) => q.questId === questId);
+  
+  if (questIndex === -1) {
+    client.send("QUEST_ERROR", { message: "Quest not found" });
+    return;
+  }
+  
+  // Check if the client is the creator of the quest
+  if (quests[questIndex].creator !== client.userData.userId) {
+    client.send("QUEST_ERROR", { message: "You are not authorized to reset this quest" });
+    return;
+  }
+  
+  try {
+    // Increment the quest version
+    const currentVersion = quests[questIndex].version;
+    const newVersion = currentVersion + 1;
+    
+    // Create version history entry
+    const versionReason = "Manual reset by creator";
+    const historyEntry = {
+      version: newVersion,
+      createdAt: new Date().toISOString(),
+      reason: versionReason
+    };
+    
+    // Initialize or update version history
+    if (!quests[questIndex].versionHistory) {
+      // If no history exists yet, create it with both versions
+      quests[questIndex].versionHistory = [
+        {
+          version: currentVersion,
+          createdAt: new Date(Date.now() - 86400000).toISOString(), // Default to yesterday for initial version
+          reason: "Initial version"
+        },
+        historyEntry
+      ];
+    } else {
+      // Add the new version to existing history
+      quests[questIndex].versionHistory.push(historyEntry);
+    }
+    
+    // Update version
+    quests[questIndex].version = newVersion;
+    
+    // Update cache
+    updateCache(QUEST_TEMPLATES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY, quests);
+    
+    // If this quest is loaded in a room, update it there too
+    if (room.questDefinition && room.questDefinition.questId === questId) {
+      room.questDefinition.version = newVersion;
+      
+      // Update version history in room's quest definition
+      if (!room.questDefinition.versionHistory) {
+        room.questDefinition.versionHistory = [...quests[questIndex].versionHistory];
+      } else {
+        room.questDefinition.versionHistory.push(historyEntry);
+      }
+    }
+    
+    // Reset user progress
+    forceResetQuestData(room, questId);
+    
+    // Send confirmation to the client
+    client.send("QUEST_RESET_SUCCESS", { 
+      questId, 
+      newVersion,
+      versionHistory: quests[questIndex].versionHistory, 
+      message: "Quest has been reset and version incremented" 
+    });
+    
+    // Broadcast version change to all clients
+    room.broadcast("QUEST_VERSION_INCREMENTED", {
+      questId: questId,
+      newVersion: newVersion,
+      reason: versionReason,
+      timestamp: historyEntry.createdAt
+    });
+    
+    return true;
+  } catch (error) {
+    console.error("Error resetting quest:", error);
+    client.send("QUEST_ERROR", { message: "Failed to reset quest" });
+    return false;
+  }
 }
  
 export function handleEndQuest(room:QuestRoom, client: Client, payload: any) {

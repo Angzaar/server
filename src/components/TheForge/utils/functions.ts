@@ -148,7 +148,8 @@ export function createNewQuestAttempt(questDefinition: QuestDefinition, profile:
     completed: false,
     started: true,
     steps: [], // Ensure steps is always initialized as an array
-    status: 'in-progress'
+    status: 'in-progress',
+    questVersion: questDefinition.version // Store the current quest version with the attempt
   };
 
   console.log('new attempt', newAttempt)
@@ -557,7 +558,8 @@ export function processTaskCompletion(room: QuestRoom, questId: string, stepId: 
       completed: false,
       started: true,
       steps: [],
-      status: 'in-progress'
+      status: 'in-progress',
+      questVersion: userQuestInfo.questVersion // Use the questVersion from userQuestInfo
     };
     
     userQuestInfo.attempts.push(firstAttempt);

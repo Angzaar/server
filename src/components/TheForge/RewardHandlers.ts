@@ -130,3 +130,76 @@ export async function handleDeleteReward(client: Client, message: any) {
     });
   }
 }
+
+export async function handleEditReward(client: Client, message: any) {
+  try {
+    console.log('handleEditReward', message);
+    
+    // Basic validation
+    if (!message.id) {
+      throw new Error('Reward ID is required');
+    }
+    
+    if (!message.name) {
+      throw new Error('Reward name is required');
+    }
+    
+    if (!message.kind) {
+      throw new Error('Reward kind is required');
+    }
+    
+    // Get existing rewards
+    const rewards = getCache(REWARDS_CACHE_KEY) || [];
+    const existingIndex = rewards.findIndex((r: Reward) => r.id === message.id);
+    
+    if (existingIndex === -1) {
+      throw new Error('Reward not found');
+    }
+    
+    const existingReward = rewards[existingIndex];
+    
+    // Security check: only creator can edit
+    if (existingReward.creator !== client.userData.userId) {
+      throw new Error('Unauthorized: only the creator can edit this reward');
+    }
+    
+    // Create updated reward object, preserving creator and creation date
+    const updatedReward: Reward = {
+      ...message,
+      creator: existingReward.creator,
+      createdAt: existingReward.createdAt,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Apply marketplace defaults and validation
+    const reward = ensureMarketplaceFields(updatedReward);
+    
+    // Validate marketplace data if present
+    const validationResult = validateMarketplaceData(reward);
+    if (!validationResult.valid) {
+      throw new Error(validationResult.error);
+    }
+    
+    // Update the reward
+    rewards[existingIndex] = reward;
+    
+    // Update cache
+    updateCache(REWARDS_CACHE_KEY, REWARDS_CACHE_KEY, rewards);
+    
+    console.log(`Edited reward: ${reward.id}`);
+
+    // Notify client of success
+    client.send("REWARD_EDITED", { 
+      success: true, 
+      reward,
+      message: `Reward "${reward.name}" has been updated.`
+    });
+
+  } catch (error) {
+    console.error("Error editing reward:", error);
+    client.send("REWARD_EDITED", { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error" 
+    });
+  }
+}

@@ -1,5 +1,5 @@
 import { getCache } from "../utils/cache";
-import { PROFILES_CACHE_KEY, REWARDS_CACHE_KEY } from "../utils/initializer";
+import { PROFILES_CACHE_KEY, REWARDS_CACHE_KEY, TOKENS_CACHE_KEY } from "../utils/initializer";
 
 /**
  * Handle marketplace rewards request with filtering, sorting and pagination
@@ -34,6 +34,32 @@ export function handleMarketplaceRewards(req: any, res: any) {
       reward.listing && 
       reward.listing.listed === true
     );
+    
+    // Retrieve tokens from cache
+    const tokens = getCache(TOKENS_CACHE_KEY) || [];
+    
+    // Process items to ensure token symbols are present
+    marketplaceItems = marketplaceItems.map((item: any) => {
+      if (item.listing && item.listing.price && item.listing.price.currency) {
+        const currency = item.listing.price.currency;
+        
+        // If this is a creator token (has tokenId) but no symbol
+        if (currency.tokenId) {
+          // Look up the token in our token registry
+          const token = tokens.find((t: any) => t.id === currency.tokenId);
+          if (token) {
+            // Add the actual token information
+            currency.symbol = token.symbol;
+            currency.name = token.name;
+            currency.tokenName = token.name;
+          } else {
+            // Fallback if token not found
+            currency.symbol = currency.symbol || `TOKEN-${currency.tokenId}`;
+          }
+        }
+      }
+      return item;
+    });
     
     // Apply filters
     if (category) {
@@ -225,6 +251,25 @@ export function handleMarketplaceRewards(req: any, res: any) {
         .filter(Boolean)
     )];
     
+    // Get currencies
+    const currencies = [...new Set(
+      marketplaceItems
+        .map((item: any) => {
+          const currencyInfo = item.listing.price.currency;
+          return currencyInfo.symbol || currencyInfo.iso || (currencyInfo.tokenId ? `${currencyInfo.tokenId}` : null);
+        })
+        .filter(Boolean)
+    )];
+    
+    // Count featured and on sale items
+    const featuredCount = marketplaceItems.filter((item: any) => 
+      item.featured === true
+    ).length;
+    
+    const onSaleCount = marketplaceItems.filter((item: any) => 
+      item.promotion && item.promotion.isOnSale === true
+    ).length;
+    
     // Construct response with metadata
     const response = {
       metadata: {
@@ -273,6 +318,29 @@ export function handleMarketplaceItemDetails(req: any, res: any) {
       return res.status(404).json({ error: "Item is not available in marketplace" });
     }
     
+    // Process token symbol if needed
+    if (item.listing.price && item.listing.price.currency) {
+      const currency = item.listing.price.currency;
+      
+      // If this is a creator token (has tokenId) but no symbol
+      if (currency.tokenId) {
+        // Retrieve tokens from cache
+        const tokens = getCache(TOKENS_CACHE_KEY) || [];
+        
+        // Look up the token in our token registry
+        const token = tokens.find((t: any) => t.id === currency.tokenId);
+        if (token) {
+          // Add the actual token information
+          currency.symbol = token.symbol;
+          currency.name = token.name;
+          currency.tokenName = token.name;
+        } else {
+          // Fallback if token not found
+          currency.symbol = currency.symbol || `TOKEN-${currency.tokenId}`;
+        }
+      }
+    }
+    
     // Get creator profile
     const profiles = getCache(PROFILES_CACHE_KEY) || [];
     const creatorProfile = profiles.find((profile: any) => 
@@ -311,40 +379,66 @@ export function handleMarketplaceFilters(req: any, res: any) {
       reward.listing && reward.listing.listed === true
     );
     
-    // Extract all categories, subcategories and tags
+    // Retrieve tokens from cache
+    const tokens = getCache(TOKENS_CACHE_KEY) || [];
+    
+    // Process items to ensure token symbols are present before collecting data
+    const processedItems = marketplaceItems.map((item: any) => {
+      if (item.listing && item.listing.price && item.listing.price.currency) {
+        const currency = item.listing.price.currency;
+        
+        // If this is a creator token (has tokenId) but no symbol
+        if (currency.tokenId) {
+          // Look up the token in our token registry
+          const token = tokens.find((t: any) => t.id === currency.tokenId);
+          if (token) {
+            // Add the actual token information
+            currency.symbol = token.symbol;
+            currency.name = token.name;
+            currency.tokenName = token.name;
+          } else {
+            // Fallback if token not found
+            currency.symbol = currency.symbol || `TOKEN-${currency.tokenId}`;
+          }
+        }
+      }
+      return item;
+    });
+    
+    // Extract all categories, subcategories and tags from processed items
     const categories = [...new Set(
-      marketplaceItems
+      processedItems
         .map((item: any) => item.marketplaceData?.category)
         .filter(Boolean)
     )];
     
     const subcategories = [...new Set(
-      marketplaceItems
+      processedItems
         .map((item: any) => item.marketplaceData?.subcategory)
         .filter(Boolean)
     )];
     
     const rarities = [...new Set(
-      marketplaceItems
+      processedItems
         .filter((item: any) => item.decentralandItem)
         .map((item: any) => item.decentralandItem?.rarity)
         .filter(Boolean)
     )];
     
-    const allTags = marketplaceItems
+    const allTags = processedItems
       .flatMap((item: any) => item.marketplaceData?.tags || [])
       .filter(Boolean);
       
     const tags = [...new Set(allTags)];
     
     const kinds = [...new Set(
-      marketplaceItems
+      processedItems
         .map((item: any) => item.kind)
         .filter(Boolean)
     )];
     
     // Get price range
-    const prices = marketplaceItems.map((item: any) => {
+    const prices = processedItems.map((item: any) => {
       // If item is on sale, use sale price
       if (item.promotion && item.promotion.isOnSale && item.promotion.salePrice) {
         return parseFloat(item.promotion.salePrice);
@@ -358,20 +452,20 @@ export function handleMarketplaceFilters(req: any, res: any) {
     
     // Get currencies
     const currencies = [...new Set(
-      marketplaceItems
-        .map((item: any) => 
-          item.listing.price.currency.symbol || 
-          item.listing.price.currency.iso
-        )
+      processedItems
+        .map((item: any) => {
+          const currencyInfo = item.listing.price.currency;
+          return currencyInfo.symbol || currencyInfo.iso || (currencyInfo.tokenId ? `${currencyInfo.tokenId}` : null);
+        })
         .filter(Boolean)
     )];
     
     // Count featured and on sale items
-    const featuredCount = marketplaceItems.filter((item: any) => 
+    const featuredCount = processedItems.filter((item: any) => 
       item.featured === true
     ).length;
     
-    const onSaleCount = marketplaceItems.filter((item: any) => 
+    const onSaleCount = processedItems.filter((item: any) => 
       item.promotion && item.promotion.isOnSale === true
     ).length;
     
@@ -388,7 +482,7 @@ export function handleMarketplaceFilters(req: any, res: any) {
       },
       currencies,
       counts: {
-        total: marketplaceItems.length,
+        total: processedItems.length,
         featured: featuredCount,
         onSale: onSaleCount
       }

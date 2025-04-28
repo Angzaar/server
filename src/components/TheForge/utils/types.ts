@@ -104,6 +104,16 @@ export interface EphemeralCodeData {
     
       /* content */
       steps: StepDefinition[];
+    
+      /* NEW — version history */
+      versionHistory?: VersionHistoryEntry[];
+    
+      /* NEW — prerequisites */
+      prerequisites?: {
+        quests?: string[];
+        steps?: string[];
+        level?: number;
+      };
     }
 
 /**
@@ -118,8 +128,28 @@ export interface QuestAttempt {
   elapsedTime: number;         // Total time spent on this attempt
   completed: boolean;          // Whether this attempt was completed
   started: boolean;            // Whether this attempt was started
-  steps: any[];                // Progress data for steps in this attempt
+  steps: QuestAttemptStep[];   // Progress data for steps in this attempt
   status?: 'in-progress' | 'completed' | 'expired';  // Current status of the attempt
+  questVersion?: number;       // The version of the quest this attempt belongs to
+}
+
+/**
+ * Represents a step within a quest attempt
+ */
+export interface QuestAttemptStep {
+  stepId: string;
+  completed: boolean;
+  tasks: QuestAttemptTask[];
+}
+
+/**
+ * Represents a task within a quest attempt step
+ */
+export interface QuestAttemptTask {
+  taskId: string;
+  count: number;
+  completed?: boolean;
+  requiredCount?: number;
 }
 
 /* ---------- ENUMS & COMMON TYPES ---------- */
@@ -259,23 +289,6 @@ export interface Reward {
   updatedAt: string;
 }
 
-
-/**
- * Represents a single attempt at completing a quest
- * Used for repeatable quests to track multiple completions
- */
-export interface QuestAttempt {
-  attemptId: string;           // Unique ID for this attempt
-  attemptNumber: number;       // Sequential number for this attempt (1-indexed)
-  startTime: number;           // When this attempt started (Unix timestamp)
-  completionTime: number;      // When this attempt was completed (Unix timestamp)
-  elapsedTime: number;         // Total time spent on this attempt
-  completed: boolean;          // Whether this attempt was completed
-  started: boolean;            // Whether this attempt was started
-  steps: any[];                // Progress data for steps in this attempt
-  status?: 'in-progress' | 'completed' | 'expired';  // Current status of the attempt
-}
-
 /**
  * Represents a creator token in the system
  */
@@ -302,4 +315,11 @@ export interface CreatorToken {
   /* housekeeping */
   createdAt: string;              // ISO‑8601
   updatedAt: string;
+}
+
+// Add a new interface for version history entries
+export interface VersionHistoryEntry {
+  version: number;
+  createdAt: string; // ISO date string
+  reason: string;    // Why the version was incremented
 }

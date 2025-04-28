@@ -5,11 +5,11 @@ import { PROFILES_CACHE_KEY, QUEST_TEMPLATES_CACHE_KEY, REWARDS_CACHE_KEY, VERSE
 import { QuestDefinition, LegacyQuestDefinition, EphemeralCodeData, StepDefinition, CompletionMode, QuestAttempt } from "./utils/types";
 import { getRandomString } from "../../utils/questing";
 import { validateAndCreateProfile } from "../../rooms/MainRoomHandlers";
-import { sanitizeUserQuestData, createNewQuestAttempt, canReplayTimeBasedQuest } from "./utils/functions";  
+import { sanitizeUserQuestData, createNewQuestAttempt, canReplayTimeBasedQuest, syncQuestToCache } from "./utils/functions";  
 import { addQuestRoom, removeQuestRoom } from "../../rooms";
 import { loadQuest, handleStartQuest, handleQuestAction, handleForceCompleteTask, handleSimulateTimeAdvance, handleIncrementTaskCount } from "./Handlers";
 import { handleCreateVerse, handleEditVerse, handleDeleteVerse } from "./VerseHandlers";
-import { handleCreateReward, handleDeleteReward } from "./RewardHandlers";
+import { handleCreateReward, handleDeleteReward, handleEditReward } from "./RewardHandlers";
 import { handleQuestOutline, handleQuestStats } from "./DataHandlers";
 import { handleCreateQuest, handleEditQuest, handleEndQuest, handleResetQuest, handleDeleteQuest } from "./QuestCreatorHandlers";
 import { handleCreateToken, handleTokenDetails, handleListTokens, handleUpdateTokenSupply, handleInventoryRequest } from "./TokenHandlers";
@@ -147,6 +147,9 @@ export class QuestRoom extends Room<QuestState> {
     this.onMessage("REWARD_CREATE", (client: Client, message: any) =>
       handleCreateReward(client, message)
     );
+    this.onMessage("REWARD_EDIT", (client: Client, message: any) =>
+      handleEditReward(client, message)
+    );
     this.onMessage("REWARD_DELETE", (client: Client, message: any) =>
       handleDeleteReward(client, message)
     );
@@ -200,6 +203,9 @@ export class QuestRoom extends Room<QuestState> {
     
     const profiles = getCache(PROFILES_CACHE_KEY);
     const now = Math.floor(Date.now() / 1000);
+    
+    // Track if any resets were performed during this check
+    let resetsPerformed = false;
     
     // Get all users who have progress in this quest
     for (const profile of profiles) {
@@ -266,6 +272,9 @@ export class QuestRoom extends Room<QuestState> {
             // Calculate elapsed time up to now
             latestAttempt.elapsedTime += (now - latestAttempt.startTime);
             
+            // Mark that a reset was performed
+            resetsPerformed = true;
+            
             // Notify the user if they're connected
             this.clients.forEach((client: Client) => {
               if (client.userData && client.userData.userId === profile.ethAddress) {
@@ -278,6 +287,69 @@ export class QuestRoom extends Room<QuestState> {
             });
           }
         }
+      }
+    }
+    
+    // If auto-resets were performed, increment quest version
+    if (resetsPerformed && this.questDefinition) {
+      // 1. Get current quests from cache
+      const quests = getCache(QUEST_TEMPLATES_CACHE_KEY);
+      const questId = this.questDefinition.questId;
+      
+      // 2. Find the quest in the cache
+      const questIndex = quests.findIndex((q: QuestDefinition) => q.questId === questId);
+      if (questIndex >= 0) {
+        // 3. Increment version
+        const currentVersion = this.questDefinition.version;
+        const newVersion = currentVersion + 1;
+        
+        console.log(`[QuestRoom] Auto-incrementing quest version from ${currentVersion} to ${newVersion} for quest "${questId}" due to time-based auto-reset`);
+        
+        // 4. Create a version history entry
+        const versionReason = "Time-based auto-reset";
+        const historyEntry = {
+          version: newVersion,
+          createdAt: new Date().toISOString(),
+          reason: versionReason
+        };
+        
+        // 5. Initialize or update version history
+        if (!quests[questIndex].versionHistory) {
+          // If no history exists yet, create it with both versions
+          quests[questIndex].versionHistory = [
+            {
+              version: currentVersion,
+              createdAt: new Date(Date.now() - 86400000).toISOString(), // Default to yesterday for initial version
+              reason: "Initial version"
+            },
+            historyEntry
+          ];
+        } else {
+          // Add the new version to existing history
+          quests[questIndex].versionHistory.push(historyEntry);
+        }
+        
+        // 6. Update version in cache
+        quests[questIndex].version = newVersion;
+        
+        // 7. Update local questDefinition
+        this.questDefinition.version = newVersion;
+        if (!this.questDefinition.versionHistory) {
+          this.questDefinition.versionHistory = [...quests[questIndex].versionHistory];
+        } else {
+          this.questDefinition.versionHistory.push(historyEntry);
+        }
+        
+        // 8. Sync changes to cache and file
+        syncQuestToCache(questId, this.questDefinition);
+        
+        // 9. Broadcast version change to all clients
+        this.broadcast("QUEST_VERSION_INCREMENTED", {
+          questId: questId,
+          newVersion: newVersion,
+          reason: versionReason,
+          timestamp: historyEntry.createdAt
+        });
       }
     }
     
@@ -295,12 +367,45 @@ export class QuestRoom extends Room<QuestState> {
       const tokenManager = new TokenManager();
       const tokens = tokenManager.getTokensByCreator(client.userData.userId);
       
+      // Send creator data
       client.send("QUEST_CREATOR", {
         quests: quests.filter((q:any) => q.creator === client.userData.userId),
-        verses: verses.filter((v:any) => v.creator === client.userData.userId),
+        verses: verses.filter((v:any) => v.creator === client.userData.userId || v.public),
         rewards: rewards.filter((r:any) => r.creator === client.userData.userId),
         tokens: tokens
-      })
+      });
+      
+      // Also send inventory data for the user
+      // Get the user's inventory/token balances
+      const profiles = getCache(PROFILES_CACHE_KEY);
+      const profile = profiles.find((p: any) => p.ethAddress === client.userData.userId);
+      
+      if (profile) {
+        // Get tokens and token balances from the profile
+        const tokens = profile.tokens || [];
+        
+        // Enrich token data if needed (similar to handleInventoryRequest)
+        const enrichedTokens = tokens.map((token: any) => {
+          if (token.token && token.token.kind === 'CREATOR_TOKEN') {
+            const fullTokenData = tokenManager.getTokenById(token.id);
+            if (fullTokenData) {
+              return {
+                ...token,
+                token: {
+                  ...fullTokenData,
+                  kind: 'CREATOR_TOKEN'
+                }
+              };
+            }
+          }
+          return token;
+        });
+        
+        // Send inventory update
+        client.send("INVENTORY_UPDATE", { 
+          inventory: enrichedTokens 
+        });
+      }
       return
     }
 

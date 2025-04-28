@@ -290,11 +290,6 @@ export async function distributeCreatorToken(reward: RewardEntry, room: QuestRoo
       return false;
     }
     
-    // Initialize tokenBalances if it doesn't exist
-    if (!userProfile.tokenBalances) {
-      userProfile.tokenBalances = {};
-    }
-    
     // Update the token balance
     const amountNumber = parseFloat(amount);
     if (isNaN(amountNumber)) {
@@ -302,22 +297,29 @@ export async function distributeCreatorToken(reward: RewardEntry, room: QuestRoo
       return false;
     }
     
-    // Add to existing balance or create new entry
-    userProfile.tokenBalances[tokenId] = userProfile.tokenBalances[tokenId] 
-      ? (parseFloat(userProfile.tokenBalances[tokenId]) + amountNumber).toString() 
-      : amount;
-    
-    // Also store token metadata for easy reference
+    // Initialize tokens array if it doesn't exist
     if (!userProfile.tokens) {
       userProfile.tokens = [];
     }
     
     // Check if token metadata already exists
     const existingTokenIndex = userProfile.tokens.findIndex((t: any) => t.id === tokenId);
+    
+    // Calculate the new balance
+    let newBalance: string;
+    if (existingTokenIndex >= 0) {
+      // Get existing balance from tokens array
+      const existingBalance = parseFloat(userProfile.tokens[existingTokenIndex].balance) || 0;
+      newBalance = (existingBalance + amountNumber).toString();
+    } else {
+      newBalance = amount;
+    }
+    
     const tokenMetadata = {
       id: tokenId,
-      balance: userProfile.tokenBalances[tokenId],
-      lastUpdated: new Date().toISOString()
+      balance: newBalance,
+      name: token.name,
+      symbol: token.symbol,
     };
     
     if (existingTokenIndex >= 0) {
@@ -330,7 +332,7 @@ export async function distributeCreatorToken(reward: RewardEntry, room: QuestRoo
     
     // Save the updated profile
     updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
-    console.log(`[RewardSystem] Updated token balance for user ${reward.userId}: ${tokenId} = ${userProfile.tokenBalances[tokenId]}`);
+    console.log(`[RewardSystem] Updated token balance for user ${reward.userId}: ${tokenId} = ${newBalance}`);
     
     // Calculate new circulating supply
     const currentSupply = parseFloat(token.circulatingSupply) || 0;

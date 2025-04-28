@@ -208,7 +208,8 @@ export async function handleQuestAction(room:QuestRoom, client: Client, payload:
             elapsedTime: 0,
             completed: false,
             started: true,
-            steps: []
+            steps: [],
+            questVersion: room.questDefinition.version
           }]
         };
         profile.questsProgress.push(userQuestInfo);
@@ -324,7 +325,8 @@ export async function handleQuestAction(room:QuestRoom, client: Client, payload:
             completed: false,
             started: true,
             status: 'in-progress',
-            steps: []
+            steps: [],
+            questVersion: userQuestInfo.questVersion
           };
           userQuestInfo.attempts.push(currentAttempt);
         }
