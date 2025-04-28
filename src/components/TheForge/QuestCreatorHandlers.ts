@@ -142,6 +142,8 @@ export function handleEditQuest(client: Client, payload: any) {
     // Add maxCompletions handling (only for non-FINITE quests)
     if (quest.completionMode !== 'FINITE') {
       quest.maxCompletions = typeof maxCompletions === 'number' ? maxCompletions : INFINITE;
+
+      console.log('maxCompletions', quest.maxCompletions)
     }
     
     // Add timeWindow handling

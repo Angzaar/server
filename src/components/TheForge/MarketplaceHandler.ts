@@ -3,6 +3,7 @@ import { getCache, updateCache } from "../../utils/cache";
 import { PROFILES_CACHE_KEY, PROFILES_FILE, REWARDS_CACHE_KEY } from "../../utils/initializer";
 import { TokenManager } from "../TokenManager";
 import { generateId } from "colyseus";
+import { processMarketplacePurchase } from "./RewardSystem/processors";
 
 const tokenManager = new TokenManager();
 
@@ -13,7 +14,7 @@ const tokenManager = new TokenManager();
  * @param message The purchase message data
  * @param broadcastRoom Optional room to broadcast inventory changes to
  */
-export function handleMarketplacePurchase(client: Client, message: any, broadcastRoom?: any) {
+export async function handleMarketplacePurchase(client: Client, message: any, broadcastRoom?: any) {
   console.log("handleMarketplacePurchase", message);
   
   try {
@@ -188,32 +189,34 @@ export function handleMarketplacePurchase(client: Client, message: any, broadcas
           });
         }
       }
+      
+      // Save the profile changes for token payments
+      updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
     }
     
-    // Add the reward to the user's inventory
-    if (!userProfile.tokens) {
-      userProfile.tokens = [];
-    }
-    
-    // Create a copy of the reward for the user's inventory
-    const userReward = {
+    // Use the reward system to handle the distribution
+    // This will add to artifacts array and maintain consistency
+    const rewardData = {
       id: reward.id,
-      instanceId: generateId(), // Unique instance ID for this particular reward copy
-      token: {
-        ...reward,
-        acquisitionInfo: {
-          acquiredAt: new Date().toISOString(),
-          source: "marketplace",
-          price: {
-            amount,
-            currency: rewardCurrency
-          }
-        }
-      }
+      name: reward.name,
+      kind: reward.kind || 'WEB2',
+      description: reward.description,
+      media: reward.media,
+      creatorToken: reward.kind === 'CREATOR_TOKEN' ? { tokenId: reward.id } : undefined
     };
     
-    // Add to user's inventory
-    userProfile.tokens.push(userReward);
+    // Process the purchase through our unified reward system
+    const quantity = 1; // Default to 1 for most items
+    const success = await processMarketplacePurchase(message.userId, rewardData, quantity);
+    
+    if (!success) {
+      console.error("Failed to process reward distribution", message);
+      client.send("MARKETPLACE_PURCHASE_RESPONSE", { 
+        success: false, 
+        message: "Failed to add item to your inventory" 
+      });
+      return;
+    }
     
     // Update the reward's available quantity
     if (reward.listing.quantity !== undefined) {
@@ -230,14 +233,11 @@ export function handleMarketplacePurchase(client: Client, message: any, broadcas
       }
     }
     
-    // Save changes
-    updateCache(PROFILES_FILE, PROFILES_CACHE_KEY, profiles);
-    
     // Send success response to client
     client.send("MARKETPLACE_PURCHASE_RESPONSE", { 
       success: true, 
       message: "Purchase successful",
-      reward: userReward
+      reward: rewardData
     });
     
     // Log the successful purchase

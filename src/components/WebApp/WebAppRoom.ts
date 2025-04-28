@@ -117,6 +117,7 @@ export class WebAppRoom extends Room<WebAppState> {
     // Inventory handler
     this.onMessage("INVENTORY_REQUEST", (client: Client, message: any) =>
       handleInventoryRequest(client, message)
+      // this.sendInventoryData(client)
     );
     
     // Marketplace handler
